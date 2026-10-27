@@ -1,0 +1,26 @@
+plugins { id 'net.fabricmc.fabric-loom' version "${loom_version}" }
+version = project.mod_version
+group = project.maven_group
+
+loom {
+    splitEnvironmentSourceSets()
+    mods { "imgprev" { sourceSet sourceSets.main; sourceSet sourceSets.client } }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"   // no mappings line on 26.x
+    implementation "net.fabricmc:fabric-loader:${loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+    testImplementation "org.junit.jupiter:junit-jupiter:5.11.0"
+}
+
+// Fills "${version}" in fabric.mod.json.
+processResources {
+    def version = project.version
+    inputs.property "version", version
+    filesMatching("fabric.mod.json") { expand "version": version }
+}
+
+java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
+tasks.withType(JavaCompile).configureEach { it.options.release = 25 }
+test { useJUnitPlatform() }

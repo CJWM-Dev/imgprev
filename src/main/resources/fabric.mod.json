@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "imgprev",
+  "version": "${version}",
+  "name": "ImgPrev",
+  "description": "Hover previews for image tokens in chat.",
+  "environment": "client",
+  "entrypoints": { "client": ["dev.example.imgprev.ImgPrevClient"] },
+  "mixins": [ { "config": "imgprev.client.mixins.json", "environment": "client" } ],
+  "depends": { "fabricloader": ">=0.19.3", "minecraft": "~26.2", "java": ">=25", "fabric-api": "*" }
+}
