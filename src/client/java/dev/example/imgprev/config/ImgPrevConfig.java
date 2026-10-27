@@ -8,7 +8,10 @@ import dev.example.imgprev.token.ResolvedMedia;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import net.fabricmc.loader.api.FabricLoader;
 
@@ -24,13 +27,19 @@ public final class ImgPrevConfig {
     public int maxDrawPx = 256;
     public Map<String, Boolean> sites = defaultSites();
     public String klipyApiKey = "";
+    /** Off by default: people without ImgPrev see the token instead of the link. */
+    public boolean autoConvertLinks = false;
+    /** Commands whose text is chat (Hypixel's party/guild/officer chat, private messages), converted like chat. */
+    public List<String> autoConvertCommands = defaultCommands();
 
     static Map<String, Boolean> defaultSites() {
         Map<String, Boolean> m = new LinkedHashMap<>();
-        for (String code : new String[] {"g", "i", "t", "e", "d", "z"}) m.put(code, true);
-        m.put("k", false);
+        for (String code : new String[] {"g", "i", "t", "e", "d", "z", "y"}) m.put(code, true);
+        m.put("k", false);   // old Klipy slug tokens: every viewer needs their own API key
         return m;
     }
+
+    static List<String> defaultCommands() { return new ArrayList<>(List.of("msg", "tell", "w", "r", "pc", "gc", "oc", "ac")); }
 
     public static Path path() { return FabricLoader.getInstance().getConfigDir().resolve("imgprev.json"); }
 
@@ -60,6 +69,9 @@ public final class ImgPrevConfig {
         if (sites == null) sites = new LinkedHashMap<>();
         defaultSites().forEach(sites::putIfAbsent);
         if (klipyApiKey == null) klipyApiKey = "";
+        if (autoConvertCommands == null) autoConvertCommands = defaultCommands();
+        autoConvertCommands.replaceAll(c -> c.strip().replaceFirst("^/", "").toLowerCase(Locale.ROOT));
+        autoConvertCommands.removeIf(String::isEmpty);
     }
 
     public long cacheBudgetBytes() { return cacheBudgetMB * MB; }

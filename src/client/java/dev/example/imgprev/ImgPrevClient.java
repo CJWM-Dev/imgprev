@@ -1,5 +1,6 @@
 package dev.example.imgprev;
 
+import dev.example.imgprev.chat.AutoConvert;
 import dev.example.imgprev.command.ImgLinkCommand;
 import dev.example.imgprev.command.ImgPrevCommand;
 import dev.example.imgprev.config.ImgPrevConfig;
@@ -21,6 +22,7 @@ public final class ImgPrevClient implements ClientModInitializer {
         CACHE = new ImageCache();
         SiteRegistry.klipyApiKey(() -> CONFIG.klipyApiKey);
         ImageTooltip.register();
+        AutoConvert.register();
         ClientCommandRegistrationCallback.EVENT.register(ImgLinkCommand::register);
         ClientCommandRegistrationCallback.EVENT.register(ImgPrevCommand::register);
         LOG.info("ImgPrev client initialized");

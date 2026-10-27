@@ -37,6 +37,9 @@ public final class ImgPrevCommand {
             .then(ClientCommands.literal("shift")
                 .then(toggle("on", (src, cfg) -> { cfg.requireShift = true; src.sendFeedback(ok("Previews need Shift held")); }))
                 .then(toggle("off", (src, cfg) -> { cfg.requireShift = false; src.sendFeedback(ok("Previews show on hover")); })))
+            .then(ClientCommands.literal("autoconvert")
+                .then(toggle("on", (src, cfg) -> { cfg.autoConvertLinks = true; src.sendFeedback(ok("Image links in messages you send become tokens")); }))
+                .then(toggle("off", (src, cfg) -> { cfg.autoConvertLinks = false; src.sendFeedback(ok("Links are sent as typed")); })))
             .then(site)
             .then(ClientCommands.literal("klipy")
                 .then(ClientCommands.literal("key").then(ClientCommands.argument("key", StringArgumentType.word()).executes(c -> {
@@ -84,7 +87,7 @@ public final class ImgPrevCommand {
             sites.append(Component.literal(" " + c.name()).withStyle(on ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY));
         }
         src.sendFeedback(Component.literal("ImgPrev: previews " + (cfg.renderEnabled ? "on" : "off")
-            + (cfg.requireShift ? ", Shift to preview" : "") + ". Sites:").append(sites));
+            + (cfg.requireShift ? ", Shift to preview" : "") + (cfg.autoConvertLinks ? ", auto-convert on" : "") + ". Sites:").append(sites));
         src.sendFeedback(Component.literal(String.format("Cache: %d images, %.1f of %d MB. Klipy key: %s",
             ImgPrevClient.CACHE.size(), ImgPrevClient.CACHE.usedBytes() / 1048576.0, cfg.cacheBudgetMB, cfg.klipyApiKey.isBlank() ? "none" : "set"))
             .withStyle(ChatFormatting.GRAY));
