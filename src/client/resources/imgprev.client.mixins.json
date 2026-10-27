@@ -2,7 +2,10 @@
   "required": true,
   "package": "dev.example.imgprev.mixin",
   "compatibilityLevel": "JAVA_25",
-  "client": [],
+  "client": [
+    "ChatComponentMixin",
+    "HoverTooltipMixin"
+  ],
   "injectors": {
     "defaultRequire": 1
   },

@@ -54,7 +54,7 @@ GuiGraphicsExtractor#componentHoverEffect(Lnet/minecraft/client/gui/Font;Lnet/mi
 @Inject(at = @At("HEAD"), cancellable = true)
 ```
 
-Recommendation for M5: inside the injection, don't blit directly. `componentHoverEffect` runs *before* the `nextStratum()` that lifts tooltips above screen content. Instead call
+Chosen approach: inside the injection, don't blit directly. `componentHoverEffect` runs *before* the `nextStratum()` that lifts tooltips above screen content. Instead call
 `setTooltipForNextFrame(font, List.of(), Optional.of(new ImageTooltipData(media)), mx, my)` and map `ImageTooltipData` → a `ClientTooltipComponent` via Fabric's `ClientTooltipComponentCallback` (item 8). That gets vanilla positioning/screen clamping (`DefaultTooltipPositioner`), the tooltip background, and the top stratum for free. (This is the handoff's listed fallback, promoted to primary.) Loading / error states use `setTooltipForNextFrame(font, Component, mx, my)`.
 
 Hover only exists while the chat screen is open; unfocused HUD chat uses `HoveredTextEffects.NONE`.
@@ -81,7 +81,7 @@ public void setTooltipForNextFrame(Font, List<Component>, Optional<TooltipCompon
 
 - `ChatScreen(String initial, boolean isDraft)` (and a 3-arg variant with `closeOnSubmit`). Use `new ChatScreen(token, false)`.
 - `Minecraft.gui` is public final; `Gui#setScreen(@Nullable Screen)`.
-- `mc.execute(...)` deferral in `/imglink chat` is required and works: `ChatScreen` runs the command synchronously inside its key handler and then calls `gui.setScreen(null)`. Key events arrive via `minecraft.execute(() -> keyPress(...))`, so `reentrantCount != 0` and the nested `execute` is queued until after the old screen closes.
+- `/imglink chat` must defer opening the screen: `ChatScreen` runs the command synchronously inside its key handler and then calls `gui.setScreen(null)`. **CHANGED:** use `mc.schedule(...)`, not the skeleton's `mc.execute(...)`. `execute` only queues when `reentrantCount != 0`; vanilla GLFW key events arrive via `minecraft.execute(() -> keyPress(...))` so it happens to work there, but Fabric's client gametest input calls `keyPress` directly and the new screen is opened then immediately closed (caught by `ImgLinkClientGameTest`). `BlockableEventLoop#schedule(R)` always appends to the task queue.
 
 ### 6. Textures — OK, with notes
 
@@ -117,6 +117,22 @@ Without it, vanilla `ClientTooltipComponent.create(TooltipComponent)` throws `Il
 ### Other API used by skeletons — OK
 
 `Util.getMillis()`, `HoverEvent.ShowText(Component value)` (record), `Style#withColor(int)`, `Style#withHoverEvent(HoverEvent)`, `FormattedText#visit(StyledContentConsumer<T>, Style)`.
+
+### Exercised in a running client (`./gradlew runClientGameTest`)
+
+The client game tests in `src/gametest` drive a real 26.2 client and confirm the items above in practice: both mixins apply; tokens become labels for server system messages and player chat; hovering a label (real cursor input) goes through `componentHoverEffect` and shows the image via the custom tooltip component; Giphy and Tenor GIFs download, decode and animate; errors, the Discord expiry check, budget eviction, and every `/imgprev` setting behave as intended. Two things only showed up there:
+
+- Chat hover uses `GuiGraphicsExtractor.mouseX/mouseY`, captured when the extractor is built each frame from `MouseHandler#getScaledXPos`, and hit-tests with `ActiveTextCollector.findElementUnderCursor`.
+- `🖼` (U+1F5BC) renders from Minecraft's Unifont fallback as a framed-picture glyph, not the missing-glyph box.
+
+AWT: the client's `Main` sets `java.awt.headless=true` unconditionally, so `javax.imageio` never touches a window system; `FrameDecoder` still composites with plain `int[]` (no `Graphics2D`).
+
+## Klipy API (docs.klipy.com, checked 2026-10-27)
+
+- Lookup: `GET https://api.klipy.com/api/v1/{app_key}/gifs/items?slugs={slug}` → `data.data[]`, each with `slug` and `file.{hd,md,sm,xs}.{gif,webp,jpg,mp4,webm}.{url,width,height,size}`. ImgPrev takes `sm.gif` (≈220 px), falling back to `md`, `xs`, `hd`.
+- Media hosts (network-requirements page): `static.klipy.com`, `static1.klipy.com`, `static2.klipy.com`. The API host is `api.klipy.com`.
+- Testing-mode keys: 100 requests/hour; ImgPrev caches slug → URL.
+- Share links: `klipy.com/{gifs|stickers|clips|memes}/{slug}`; only `/gifs/` is supported (stickers would need the sticker endpoint, clips are video). Slugs are lowercase words and digits joined by `-`.
 
 ## Live URL checks (from a GB connection, UA `ImgPrev/0.1 (Minecraft mod)`)
 

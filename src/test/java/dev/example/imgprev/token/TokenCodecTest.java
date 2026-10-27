@@ -1,0 +1,87 @@
+package dev.example.imgprev.token;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+class TokenCodecTest {
+    /** Builds a token with a correct checksum around an arbitrary body. */
+    static String craft(String body) { return "<~" + body + TokenCodec.check(body) + "~>"; }
+
+    @Test void craftedValidTokenDecodes() {
+        assertTrue(TokenCodec.decode(craft("1gkj8RVuDxh4x7W")).isPresent());
+    }
+
+    @Test void wrongChecksumRejected() {
+        String good = craft("1gkj8RVuDxh4x7W");
+        char c = good.charAt(good.length() - 3);
+        String bad = good.substring(0, good.length() - 3) + (c == 'A' ? 'B' : 'A') + "~>";
+        assertTrue(TokenCodec.decode(bad).isEmpty());
+    }
+
+    @Test void otherVersionRejected() {
+        assertTrue(TokenCodec.decode(craft("2gkj8RVuDxh4x7W")).isEmpty());
+    }
+
+    @Test void unknownSiteCodeRejected() {
+        assertTrue(TokenCodec.decode(craft("1qkj8RVuDxh4x7W")).isEmpty());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "1gabc",            // giphy id < 5
+        "1ixAbC12xY",       // imgur ext code not p/j/g
+        "1ipAbC",           // imgur hash too short
+        "1tshort",          // tenor key < 8
+        "1es",              // emoji without snowflake
+        "1d1-2-3",          // discord attachment needs 6 fields
+        "1zx123",           // gyazo ext code not p/j/g
+    })
+    void payloadPatternMismatchRejected(String body) {
+        assertTrue(TokenCodec.decode(craft(body)).isEmpty(), body);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "http://i.imgur.com/AbC12xY.png",
+        "ftp://i.imgur.com/AbC12xY.png",
+        "https://example.com/AbC12xY.png",
+        "https://evil.com/i.imgur.com/AbC12xY.png",
+        "https://i.imgur.com.evil.com/AbC12xY.png",
+        "https://imgur.com/a/AbC12xY",
+        "https://imgur.com/gallery/AbC12xY",
+        "https://tenor.com/view/cat-gif-123456",
+        "https://media.tenor.com/abc_defgh123/x.gif",
+        "https://media.tenor.com/1S3s5iesWX0AAAPo/x.mp4",
+        "https://giphy.com/explore/cat",
+        "https://cdn.discordapp.com/attachments/1100000000000000001/1300000000000000002/image.png",
+        "https://i.gyazo.com/0123.png",
+        "javascript:alert(1)",
+        "not a url",
+        "https://",
+        "",
+    })
+    void encodeRejects(String url) {
+        assertTrue(TokenCodec.encode(url).isEmpty(), url);
+    }
+
+    @Test void encodeIgnoresSchemeAndHostCase() {
+        assertEquals(TokenCodec.encode("https://i.imgur.com/AbC12xY.png"), TokenCodec.encode("HTTPS://I.IMGUR.COM/AbC12xY.png"));
+        assertTrue(TokenCodec.encode("https://i.imgur.com/AbC12xY.png").isPresent());
+    }
+
+    @Test void findsEveryTokenInSurroundingText() {
+        String a = TokenCodec.encode("https://i.imgur.com/AbC12xY.png").orElseThrow();
+        String b = TokenCodec.encode("https://media4.giphy.com/media/kj8RVuDxh4x7W/giphy.gif").orElseThrow();
+        Matcher m = TokenCodec.TOKEN.matcher("look " + a + "and" + b + " ok");
+        List<String> found = new ArrayList<>();
+        while (m.find()) { found.add(m.group()); assertTrue(TokenCodec.decode(m).isPresent()); }
+        assertEquals(List.of(a, b), found);
+    }
+}

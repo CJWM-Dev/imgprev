@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "imgprev-gametest",
+  "version": "0.0.0",
+  "name": "ImgPrev game tests",
+  "environment": "client",
+  "entrypoints": {
+    "fabric-client-gametest": [
+      "dev.example.imgprev.gametest.ImgLinkClientGameTest",
+      "dev.example.imgprev.gametest.ChatPreviewClientGameTest",
+      "dev.example.imgprev.gametest.SettingsClientGameTest"
+    ]
+  },
+  "depends": { "imgprev": "*" }
+}
