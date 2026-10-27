@@ -74,15 +74,15 @@ class KlipyCodecTest {
         assertEquals("Klipy API key looks wrong", e.getCause().getMessage());
     }
 
-    @Test void picksSmallGifFromCdn() throws MediaException {
+    @Test void picksMediumGifFromCdn() throws MediaException {
         URI u = KlipyCodec.pick(response("hello-hi-662", CDN + "y6iepZM7.gif", CDN + "8GCrVAB7.gif"), "hello-hi-662");
-        assertEquals(URI.create(CDN + "y6iepZM7.gif"), u);
+        assertEquals(URI.create(CDN + "8GCrVAB7.gif"), u);
         assertTrue(TokenCodec.encode(u.toString()).isPresent(), "the picked address converts to a keyless token");
     }
 
     @Test void skipsOffCdnUrlsAndFallsBack() throws MediaException {
-        URI u = KlipyCodec.pick(response("hello-hi-662", "https://evil.example/y6iepZM7.gif", CDN + "8GCrVAB7.gif"), "hello-hi-662");
-        assertEquals(URI.create(CDN + "8GCrVAB7.gif"), u);   // sm was off-CDN, md is next
+        URI u = KlipyCodec.pick(response("hello-hi-662", CDN + "y6iepZM7.gif", "https://evil.example/8GCrVAB7.gif"), "hello-hi-662");
+        assertEquals(URI.create(CDN + "um0L4dFH.gif"), u);   // md was off-CDN, hd is next
     }
 
     @Test void rejectsPlainHttpAndOtherSlugs() {

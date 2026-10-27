@@ -32,7 +32,7 @@ final class KlipyCodec implements SiteCodec {
     static final Pattern PATH = Pattern.compile("^/gifs/([A-Za-z0-9-]{3,100})/?$");
     /** The key goes into the request path, so only URL-safe characters. */
     static final Pattern API_KEY = Pattern.compile("[A-Za-z0-9_-]{8,128}");
-    static final String[] SIZES = {"sm", "md", "xs", "hd"};   // sm ≈ 220 px, closest to the preview size
+    static final String[] SIZES = {"md", "hd", "sm", "xs"};   // md ≈ 500 px: sharp at full preview size without hd's file sizes
     static final int MAX_JSON_BYTES = 1 << 20;
     private static final Set<String> PAGE_HOSTS = Set.of("klipy.com", "www.klipy.com");
     private static final Set<String> API = Set.of("api.klipy.com");
@@ -80,7 +80,7 @@ final class KlipyCodec implements SiteCodec {
         });
     }
 
-    /** The item's GIF, smallest-first from {@link #SIZES}; only HTTPS URLs on Klipy's CDN are accepted. */
+    /** The item's GIF, in {@link #SIZES} order; only HTTPS URLs on Klipy's CDN are accepted. */
     static URI pick(String json, String slug) throws MediaException {
         JsonArray items;
         try {

@@ -63,30 +63,44 @@ class FrameDecoderTest {
         return bos.toByteArray();
     }
 
-    static int px(FrameDecoder.Frames f, int frame, int x, int y) { return f.argb()[(frame * f.h() + y) * f.w() + x]; }
+    static int px(FrameDecoder.Frames f, int frame, int x, int y) { return f.frames().get(frame)[y * f.w() + x]; }
 
     @Test void stillImageIsScaledToFit() throws IOException {
-        FrameDecoder.Frames f = FrameDecoder.decode(png(solid(600, 300, RED)), 256);
+        FrameDecoder.Frames f = FrameDecoder.decode(png(solid(600, 300, RED)), 256, 256);
         assertEquals(256, f.w());
         assertEquals(128, f.h());
         assertEquals(1, f.count());
-        assertTrue(Arrays.stream(f.argb()).allMatch(p -> p == RED));
+        assertTrue(Arrays.stream(f.frames().getFirst()).allMatch(p -> p == RED));
     }
 
     @Test void smallImagesAreNotUpscaled() throws IOException {
-        FrameDecoder.Frames f = FrameDecoder.decode(png(solid(40, 20, BLUE)), 256);
+        FrameDecoder.Frames f = FrameDecoder.decode(png(solid(40, 20, BLUE)), 256, 256);
         assertEquals(40, f.w());
         assertEquals(20, f.h());
     }
 
+    @Test void fitsTheNarrowerSideOfTheBox() throws IOException {
+        FrameDecoder.Frames f = FrameDecoder.decode(png(solid(600, 300, RED)), 1024, 100);
+        assertEquals(200, f.w());
+        assertEquals(100, f.h());
+        assertEquals(600, f.srcW());
+        assertEquals(300, f.srcH());
+    }
+
+    @Test void largeSourcesAreAccepted() throws IOException {
+        FrameDecoder.Frames f = FrameDecoder.decode(png(solid(4000, 3000, RED)), 1024, 1024);   // phone photo size
+        assertEquals(1024, f.w());
+        assertEquals(768, f.h());
+    }
+
     @Test void oversizeRejectedFromHeader() throws IOException {
-        byte[] wide = png(solid(3000, 2, RED));
-        MediaException e = assertThrows(MediaException.class, () -> FrameDecoder.decode(wide, 256));
+        byte[] wide = png(solid(5000, 2, RED));
+        MediaException e = assertThrows(MediaException.class, () -> FrameDecoder.decode(wide, 256, 256));
         assertTrue(e.getMessage().startsWith("Image too large"), e.getMessage());
     }
 
     @Test void garbageRejected() {
-        MediaException e = assertThrows(MediaException.class, () -> FrameDecoder.decode("<html>nope</html>".getBytes(), 256));
+        MediaException e = assertThrows(MediaException.class, () -> FrameDecoder.decode("<html>nope</html>".getBytes(), 256, 256));
         assertEquals("Unsupported image format", e.getMessage());
     }
 
@@ -94,7 +108,7 @@ class FrameDecoderTest {
         FrameDecoder.Frames f = FrameDecoder.decode(gif(
             new Frame(solid(4, 4, RED), 0, 0, 5, "none"),
             new Frame(solid(2, 2, BLUE), 2, 2, 1, "restoreToBackgroundColor"),
-            new Frame(solid(1, 1, GREEN), 0, 0, 20, "none")), 256);
+            new Frame(solid(1, 1, GREEN), 0, 0, 20, "none")), 256, 256);
         assertEquals(3, f.count());
         assertEquals(4, f.w());
         assertArrayEquals(new int[] {50, 100, 200}, f.delaysMs());   // 10 ms is too fast: played at 100 ms
@@ -110,28 +124,36 @@ class FrameDecoderTest {
         FrameDecoder.Frames f = FrameDecoder.decode(gif(
             new Frame(solid(4, 4, RED), 0, 0, 10, "none"),
             new Frame(solid(4, 4, BLUE), 0, 0, 10, "restoreToPrevious"),
-            new Frame(solid(1, 1, GREEN), 0, 0, 10, "none")), 256);
+            new Frame(solid(1, 1, GREEN), 0, 0, 10, "none")), 256, 256);
         assertEquals(BLUE, px(f, 1, 2, 2));
         assertEquals(RED, px(f, 2, 2, 2));
         assertEquals(GREEN, px(f, 2, 0, 0));
     }
 
     @Test void longGifsDropFramesButKeepTotalDuration() throws IOException {
-        Frame[] frames = new Frame[100];
+        Frame[] frames = new Frame[2 * FrameDecoder.MAX_FRAMES];
         for (int i = 0; i < frames.length; i++) frames[i] = new Frame(solid(2, 2, i % 2 == 0 ? RED : BLUE), 0, 0, 3, "none");
-        FrameDecoder.Frames f = FrameDecoder.decode(gif(frames), 256);
-        assertEquals(50, f.count());   // ≤ 64 kept: every 2nd frame
+        FrameDecoder.Frames f = FrameDecoder.decode(gif(frames), 256, 256);
+        assertEquals(FrameDecoder.MAX_FRAMES, f.count());   // every 2nd frame
         assertTrue(Arrays.stream(f.delaysMs()).allMatch(d -> d == 60));
-        assertEquals(3000, Arrays.stream(f.delaysMs()).sum());
+        assertEquals(frames.length * 30, Arrays.stream(f.delaysMs()).sum());
     }
 
-    @Test void sheetHeightIsCapped() throws IOException {
+    @Test void largeFramesAreAllKept() throws IOException {
         Frame[] frames = new Frame[40];
-        for (int i = 0; i < frames.length; i++) frames[i] = new Frame(solid(300, 300, RED), 0, 0, 10, "none");
-        FrameDecoder.Frames f = FrameDecoder.decode(gif(frames), 256);
-        assertEquals(256, f.h());
-        assertTrue(f.sheetH() <= FrameDecoder.MAX_SHEET_H, "sheet " + f.sheetH());
-        assertEquals(20, f.count());
+        for (int i = 0; i < frames.length; i++) frames[i] = new Frame(solid(300, 300, i % 2 == 0 ? RED : BLUE), 0, 0, 10, "none");
+        FrameDecoder.Frames f = FrameDecoder.decode(gif(frames), 1024, 1024);
+        assertEquals(300, f.h());
+        assertEquals(40, f.count());
+        assertEquals(BLUE, px(f, 39, 299, 299));
+    }
+
+    @Test void bigLongAnimationsShrinkToThePixelBudget() {
+        int[] size = FrameDecoder.withinBudget(1000, 500, FrameDecoder.MAX_FRAMES);
+        assertTrue((long) size[0] * size[1] * FrameDecoder.MAX_FRAMES <= FrameDecoder.MAX_PIXELS, size[0] + "×" + size[1]);
+        assertTrue(size[0] > 300, "still well above the old 256 px cap: " + size[0]);
+        assertEquals(2.0, (double) size[0] / size[1], 0.01);
+        assertArrayEquals(new int[] {480, 270}, FrameDecoder.withinBudget(480, 270, 100));   // a typical GIF fits as is
     }
 
     @Test void downscaleWeightsColourByAlpha() {

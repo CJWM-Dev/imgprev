@@ -18,13 +18,16 @@ import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.MemoryCacheImageInputStream;
 
 /**
- * GIF/PNG/JPEG/WebP bytes → frames scaled to fit {@code maxPx}, stacked into one vertical sheet. Runs off-thread.
+ * GIF/PNG/JPEG/WebP bytes → frames scaled to fit a {@code maxW × maxH} box. Runs off-thread.
  * Pure Java: javax.imageio (+ the bundled TwelveMonkeys WebP reader) for decoding, plain int[] for
  * compositing/scaling (no AWT drawing, no Toolkit).
  */
 public final class FrameDecoder {
-    public static final int MAX_SOURCE_PX = 2048;
-    static final int MAX_FRAMES = 64, MAX_SHEET_H = 8192;
+    public static final int MAX_SOURCE_PX = 4096;
+    /** Longer animations keep every n-th frame. */
+    static final int MAX_FRAMES = 240;
+    /** Pixels kept per image over all its frames (64 MB once uploaded); large, long animations are scaled down to fit. */
+    static final long MAX_PIXELS = 16L << 20;
     /** Bounds compositing work for long, large animations (frames × canvas pixels). */
     static final long MAX_COMPOSITE_PIXELS = 400_000_000L;
     static final int MIN_DELAY_MS = 20, SLOW_DELAY_MS = 100;
@@ -37,9 +40,9 @@ public final class FrameDecoder {
 
     private FrameDecoder() {}
 
-    /** {@code count} frames of {@code w×h} stacked top to bottom in {@code argb}; frame i shows for {@code delaysMs[i]}. */
-    public record Frames(int w, int h, int count, int[] argb, int[] delaysMs) {
-        public int sheetH() { return h * count; }
+    /** Frames of {@code w×h} ARGB pixels, scaled from a {@code srcW×srcH} original; frame i shows for {@code delaysMs[i]}. */
+    public record Frames(int w, int h, int srcW, int srcH, List<int[]> frames, int[] delaysMs) {
+        public int count() { return frames.size(); }
     }
 
     enum Dispose { NONE, BACKGROUND, PREVIOUS }
@@ -50,7 +53,7 @@ public final class FrameDecoder {
     @FunctionalInterface
     interface Placements { Placement at(int index) throws IOException; }
 
-    public static Frames decode(byte[] data, int maxPx) throws IOException {
+    public static Frames decode(byte[] data, int maxW, int maxH) throws IOException {
         try (ImageInputStream in = new MemoryCacheImageInputStream(new ByteArrayInputStream(data))) {
             Iterator<ImageReader> readers = ImageIO.getImageReaders(in);
             if (!readers.hasNext()) throw new MediaException("Unsupported image format");
@@ -59,12 +62,12 @@ public final class FrameDecoder {
                 reader.setInput(in, false, false);
                 checkSize(reader.getWidth(0), reader.getHeight(0));   // header only, before any pixels are decoded
                 return switch (reader.getFormatName().toLowerCase(Locale.ROOT)) {
-                    case "gif" -> gif(reader, maxPx);
+                    case "gif" -> gif(reader, maxW, maxH);
                     case "webp" -> {
                         WebPAnimation anim = WebPAnimation.parse(data);
-                        yield anim == null ? still(reader.read(0), maxPx) : webp(reader, anim, maxPx);
+                        yield anim == null ? still(reader.read(0), maxW, maxH) : webp(reader, anim, maxW, maxH);
                     }
-                    default -> still(reader.read(0), maxPx);
+                    default -> still(reader.read(0), maxW, maxH);
                 };
             } finally {
                 reader.dispose();
@@ -72,34 +75,35 @@ public final class FrameDecoder {
         }
     }
 
-    static Frames still(BufferedImage img, int maxPx) {
+    static Frames still(BufferedImage img, int maxW, int maxH) {
         int w = img.getWidth(), h = img.getHeight();
-        int[] size = fit(w, h, maxPx);
-        return new Frames(size[0], size[1], 1, resize(img.getRGB(0, 0, w, h, null, 0, w), w, h, size[0], size[1]), new int[] {0});
+        int[] size = fit(w, h, maxW, maxH);
+        return new Frames(size[0], size[1], w, h, List.of(resize(img.getRGB(0, 0, w, h, null, 0, w), w, h, size[0], size[1])), new int[] {0});
     }
 
-    static Frames gif(ImageReader reader, int maxPx) throws IOException {
+    static Frames gif(ImageReader reader, int maxW, int maxH) throws IOException {
         int[] screen = logicalScreen(reader);
         int total;
         try { total = reader.getNumImages(true); } catch (IOException e) { total = -1; }   // -1: unknown, read until it stops
-        return animate(reader, screen[0], screen[1], total, maxPx, i -> gifPlacement((IIOMetadataNode) reader.getImageMetadata(i).getAsTree(GIF_IMAGE)));
+        return animate(reader, screen[0], screen[1], total, maxW, maxH, i -> gifPlacement((IIOMetadataNode) reader.getImageMetadata(i).getAsTree(GIF_IMAGE)));
     }
 
-    static Frames webp(ImageReader reader, WebPAnimation anim, int maxPx) throws IOException {
+    static Frames webp(ImageReader reader, WebPAnimation anim, int maxW, int maxH) throws IOException {
         List<WebPAnimation.Frame> frames = anim.frames();
-        return animate(reader, anim.canvasW(), anim.canvasH(), frames.size(), maxPx, i -> {
+        return animate(reader, anim.canvasW(), anim.canvasH(), frames.size(), maxW, maxH, i -> {
             WebPAnimation.Frame f = frames.get(i);
             return new Placement(f.x(), f.y(), normalizeDelay(f.durationMs()), f.dispose() ? Dispose.BACKGROUND : Dispose.NONE, f.blend());
         });
     }
 
     /** Composites source frames on a canvas; long animations keep every step-th frame and fold in the dropped frames' time. */
-    static Frames animate(ImageReader reader, int cw, int ch, int total, int maxPx, Placements placements) throws IOException {
+    static Frames animate(ImageReader reader, int cw, int ch, int total, int maxW, int maxH, Placements placements) throws IOException {
         checkSize(cw, ch);
         int budget = (int) Math.max(1, Math.min(Integer.MAX_VALUE, MAX_COMPOSITE_PIXELS / ((long) cw * ch)));
         int sourceFrames = total > 0 ? Math.min(total, budget) : budget;
-        int[] out = fit(cw, ch, maxPx);
-        int keep = Math.max(1, Math.min(MAX_FRAMES, MAX_SHEET_H / out[1]));
+        int keep = Math.min(sourceFrames, MAX_FRAMES);
+        int[] fitted = fit(cw, ch, maxW, maxH);
+        int[] out = withinBudget(fitted[0], fitted[1], keep);
         int step = total > 0 ? Math.ceilDiv(sourceFrames, keep) : 1;
 
         int[] canvas = new int[cw * ch];
@@ -132,9 +136,7 @@ public final class FrameDecoder {
             else if (previous != null) canvas = previous;
         }
 
-        int[] sheet = new int[out[0] * out[1] * frames.size()];
-        for (int i = 0; i < frames.size(); i++) System.arraycopy(frames.get(i), 0, sheet, i * out[0] * out[1], out[0] * out[1]);
-        return new Frames(out[0], out[1], frames.size(), sheet, delays.stream().mapToInt(Integer::intValue).toArray());
+        return new Frames(out[0], out[1], cw, ch, frames, delays.stream().mapToInt(Integer::intValue).toArray());
     }
 
     /** GIF transparency is 1-bit, so blending reduces to copying opaque pixels. */
@@ -201,10 +203,19 @@ public final class FrameDecoder {
         if (w <= 0 || h <= 0 || w > MAX_SOURCE_PX || h > MAX_SOURCE_PX) throw new MediaException("Image too large (" + w + "×" + h + ")");
     }
 
-    static int[] fit(int w, int h, int maxPx) {
-        if (w <= maxPx && h <= maxPx) return new int[] {w, h};
-        double s = (double) maxPx / Math.max(w, h);
+    /** {@code w×h} shrunk (never enlarged) to fit inside {@code maxW×maxH}, keeping its shape. */
+    public static int[] fit(int w, int h, int maxW, int maxH) {
+        if (w <= maxW && h <= maxH) return new int[] {w, h};
+        double s = Math.min((double) maxW / w, (double) maxH / h);
         return new int[] {Math.max(1, (int) Math.round(w * s)), Math.max(1, (int) Math.round(h * s))};
+    }
+
+    /** {@code w×h} shrunk until {@code frames} of it fit in {@link #MAX_PIXELS}. */
+    static int[] withinBudget(int w, int h, int frames) {
+        long pixels = (long) w * h * frames;
+        if (pixels <= MAX_PIXELS) return new int[] {w, h};
+        double s = Math.sqrt((double) MAX_PIXELS / pixels);
+        return new int[] {Math.max(1, (int) (w * s)), Math.max(1, (int) (h * s))};
     }
 
     /** Box-filter downscale with alpha-weighted colour (transparent pixels don't darken edges). */

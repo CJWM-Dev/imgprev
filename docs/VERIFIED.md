@@ -85,11 +85,11 @@ public void setTooltipForNextFrame(Font, List<Component>, Optional<TooltipCompon
 
 ### 6. Textures — OK, with notes
 
-- `DynamicTexture(Supplier<String> label, NativeImage image)` **uploads in the constructor** via `RenderSystem.getDevice()`. Construct on the render thread only.
-- `DynamicTexture` keeps the `NativeImage` (off-heap) until `close()`. Budget accounting of `sheetW*sheetH*4` reflects that CPU-side copy (GPU copy is extra, in VRAM).
-- `NativeImage(int w, int h, boolean zero)` → RGBA format. `setPixel(x, y, argb)` takes **ARGB** (converts to ABGR internally), so `BufferedImage.getRGB` values go in unchanged.
-- `TextureManager#register(Identifier, AbstractTexture)` closes any previous texture at that id. `TextureManager#release(Identifier)` removes and closes.
-- `Identifier.fromNamespaceAndPath(String, String)` exists; path must be lowercase `[a-z0-9/._-]` (hash the key, as planned).
+- `DynamicTexture(Supplier<String> label, NativeImage image)` **uploads in the constructor** via `RenderSystem.getDevice()`, keeps the `NativeImage` until `close()`, and always samples with `getRepeat(FilterMode.NEAREST)` (blocky when scaled).
+- **Used instead (0.2.0):** a GPU texture per frame with no `TextureManager` entry. `GpuDevice#createTexture(String label, USAGE_COPY_DST | USAGE_TEXTURE_BINDING, GpuFormat.RGBA8_UNORM, w, h, 1, 1)` + `createCommandEncoder().writeToTexture(texture, nativeImage)` + `createTextureView(texture)`, the same calls `DynamicTexture` makes. `writeToTexture` copies the pixels out before returning (GL: `glTexSubImage2D`; Vulkan: `transientMemory.uploadStaging` into a staging buffer), so the `NativeImage` is closed straight after. It throws inside a render pass; tooltip extraction isn't one (vanilla map textures are prepared there too).
+- `GuiGraphicsExtractor#blit(GpuTextureView, GpuSampler, x0, y0, x1, y1, u0, u1, v0, v1)` is public and draws with `RenderPipelines.GUI_TEXTURED`; the `Identifier` overloads just look up the texture's view and sampler. `RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR)` gives a smooth sampler.
+- Previews are decoded at the GUI box × `Window#getGuiScale()` (physical pixels) and drawn at the box size in GUI units, so one texel ≈ one screen pixel. One texture per frame means no sprite-sheet height cap (was 8192 px, which forced ≤ 64 small frames).
+- `NativeImage(int w, int h, boolean zero)` → RGBA format. `setPixel(x, y, argb)` takes **ARGB** (converts to ABGR internally), so `BufferedImage.getRGB` values go in unchanged. `close()` is idempotent.
 
 ### 7. Shift key — OK
 
@@ -158,8 +158,8 @@ AWT: the client's `Main` sets `java.awt.headless=true` unconditionally, so `java
 
 | Site | Result |
 |---|---|
-| Giphy | `https://i.giphy.com/media/{id}/200.gif` → 200 `image/gif`, no redirect. Unknown id → **404 with an `image/gif` body** (SafeHttp's status check must run before the content-type check, which it does). |
-| Tenor | `media.tenor.com/{key}/{anything}.gif` serves identical bytes regardless of filename, so `tenor.gif` works. The key suffix picks the rendition (`…AAAAM` tinygif ~30 KB, `…AAAAC` gif ~120 KB); keeping the full key preserves the sender's rendition. Unknown key → 404. |
+| Giphy | Previews use `https://i.giphy.com/media/{id}/giphy.gif`, the original upload (checked 2026-10-27: 492×298, 478×288 and 400×275, 63 KB–1 MB), not `200.gif` (200 px tall). Unknown id on `giphy.gif` (and `source.gif`, `giphy-downsized*.gif`) → **200 with a 480×270 "THIS CONTENT IS NOT AVAILABLE" GIF**, shown as is; only the small renditions (`200.gif`, `200w.gif`) answer 404. `giphy.webp` 404s for some real ids; `giphy-hd.gif` and `480w.gif` → 403. `i.giphy.com/{id}.gif` serves the same bytes as `/media/{id}/giphy.gif`. |
+| Tenor | `media.tenor.com/{key}/{anything}.gif` serves identical bytes regardless of filename, so `tenor.gif` works. The key suffix picks the rendition: `…AAAAM` is the 220 px medium GIF, `…AAAAC` the full-size one (498×496 for `1S3s5iesWX0`); previews swap M for C. tenor.com's "copy image address" gives `media1.tenor.com/m/{key}/{name}.gif`, and `c.tenor.com/{key}/…` also works; both serve the same bytes as `media.tenor.com/{key}/…`. Unknown key → 404. |
 | Imgur | **Not verifiable from the UK.** Imgur geo-blocks the UK: `i.imgur.com/{anything}` returns **200 `image/png`** (34,641-byte "not available" placeholder) for every hash and extension; `imgur.com` returns 403 "Content not available in your region". UK recipients will see that placeholder instead of the image. Extension swapping still needs a check from a non-UK connection. |
 | Gyazo | Unknown id on `i.gyazo.com/{hex}.{ext}` → **503 `text/plain`** (not 404). Gyazo stores captures as PNG, switching to JPG when > 1 MB, so "page link without ext → png" may be wrong for large captures. Still needs a real capture URL to confirm. |
 | Discord | Unknown emoji → 404 JSON; unsigned attachment URL → 404, as expected. |

@@ -40,18 +40,21 @@ public final class ImageCache {
         public String error() { return error; }
     }
 
-    private record Decoded(FrameDecoder.Frames frames, NativeImage sheet) {}
+    private record Decoded(FrameDecoder.Frames frames, NativeImage[] images) {}
 
     private final LinkedHashMap<String, Entry> entries = new LinkedHashMap<>(16, 0.75f, true);   // access order = LRU
     private long usedBytes;
 
-    /** Called every frame while a preview is hovered. FAILED entries are kept so dead links aren't refetched each frame. */
-    public Entry getOrStart(ResolvedMedia m) {
+    /**
+     * Called every frame while a preview is hovered. FAILED entries are kept so dead links aren't refetched each frame.
+     * A new load fits the image in {@code boxW×boxH} GUI units, decoded at {@code guiScale} pixels per unit.
+     */
+    public Entry getOrStart(ResolvedMedia m, int boxW, int boxH, int guiScale) {
         Entry e = entries.get(m.key());
         if (e != null && !(e.state == State.FAILED && Util.getMillis() - e.failedAt > RETRY_MS)) return e;
         Entry fresh = new Entry();
         entries.put(m.key(), fresh);
-        load(m, fresh);
+        load(m, fresh, boxW, boxH, guiScale);
         return fresh;
     }
 
@@ -65,27 +68,27 @@ public final class ImageCache {
         usedBytes = 0;
     }
 
-    private void load(ResolvedMedia m, Entry e) {
-        int maxBytes = ImgPrevClient.CONFIG.maxDownloadBytes(), maxPx = ImgPrevClient.CONFIG.maxDrawPx;
+    private void load(ResolvedMedia m, Entry e, int boxW, int boxH, int guiScale) {
+        int maxBytes = ImgPrevClient.CONFIG.maxDownloadBytes();
         CompletableFuture<URI> uri;
         try { uri = m.codec().mediaUri(m.payload()); } catch (RuntimeException ex) { uri = CompletableFuture.failedFuture(ex); }
         uri.thenCompose(u -> SafeHttp.get(u, m.codec().allowedDownloadHosts(), maxBytes, "image/"))
-            .thenApplyAsync(bytes -> decode(bytes, maxPx), DECODE)
-            .whenComplete((d, err) -> Minecraft.getInstance().execute(() -> finish(m, e, d, err)));
+            .thenApplyAsync(bytes -> decode(bytes, boxW * guiScale, boxH * guiScale), DECODE)
+            .whenComplete((d, err) -> Minecraft.getInstance().execute(() -> finish(m, e, d, err, boxW, boxH)));
     }
 
-    private static Decoded decode(byte[] bytes, int maxPx) {
+    private static Decoded decode(byte[] bytes, int maxW, int maxH) {
         try {
-            FrameDecoder.Frames f = FrameDecoder.decode(bytes, maxPx);
-            return new Decoded(f, AnimatedTexture.toSheet(f));
+            FrameDecoder.Frames f = FrameDecoder.decode(bytes, maxW, maxH);
+            return new Decoded(f, AnimatedTexture.toImages(f));
         } catch (IOException ex) {
             throw new CompletionException(ex);
         }
     }
 
-    private void finish(ResolvedMedia m, Entry e, @Nullable Decoded d, @Nullable Throwable err) {
+    private void finish(ResolvedMedia m, Entry e, @Nullable Decoded d, @Nullable Throwable err, int boxW, int boxH) {
         if (entries.get(m.key()) != e) {   // cleared or replaced while loading
-            if (d != null) d.sheet().close();
+            if (d != null) AnimatedTexture.close(d.images());
             return;
         }
         if (err != null) {
@@ -95,7 +98,9 @@ public final class ImageCache {
             ImgPrevClient.LOG.debug("Preview {} failed: {}", m.key(), err.toString());
             return;
         }
-        e.texture = AnimatedTexture.upload(m.key(), d.frames(), d.sheet());
+        FrameDecoder.Frames f = d.frames();
+        int[] display = FrameDecoder.fit(f.srcW(), f.srcH(), boxW, boxH);   // GUI units; the texture has up to guiScale× the pixels
+        e.texture = new AnimatedTexture(m.key(), f, d.images(), display[0], display[1]);
         e.state = State.READY;
         usedBytes += e.texture.bytes();
         evictOverBudget(e);

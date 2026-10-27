@@ -17,11 +17,13 @@ class SiteRoundTripTest {
     @ParameterizedTest
     @CsvSource(delimiter = '|', textBlock = """
         # Giphy
-        https://media4.giphy.com/media/kj8RVuDxh4x7W/giphy.gif | https://i.giphy.com/media/kj8RVuDxh4x7W/200.gif
-        https://giphy.com/gifs/cat-funny-kj8RVuDxh4x7W | https://i.giphy.com/media/kj8RVuDxh4x7W/200.gif
-        https://giphy.com/gifs/kj8RVuDxh4x7W | https://i.giphy.com/media/kj8RVuDxh4x7W/200.gif
-        https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjEx/XJtM2nNFCzT3etvzOB/giphy.gif?cid=790b7611&rid=giphy.gif | https://i.giphy.com/media/XJtM2nNFCzT3etvzOB/200.gif
-        https://i.giphy.com/media/XJtM2nNFCzT3etvzOB/200.gif | https://i.giphy.com/media/XJtM2nNFCzT3etvzOB/200.gif
+        https://media4.giphy.com/media/kj8RVuDxh4x7W/giphy.gif | https://i.giphy.com/media/kj8RVuDxh4x7W/giphy.gif
+        https://giphy.com/gifs/cat-funny-kj8RVuDxh4x7W | https://i.giphy.com/media/kj8RVuDxh4x7W/giphy.gif
+        https://giphy.com/gifs/kj8RVuDxh4x7W | https://i.giphy.com/media/kj8RVuDxh4x7W/giphy.gif
+        https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjEx/XJtM2nNFCzT3etvzOB/giphy.gif?cid=790b7611&rid=giphy.gif | https://i.giphy.com/media/XJtM2nNFCzT3etvzOB/giphy.gif
+        https://i.giphy.com/media/XJtM2nNFCzT3etvzOB/200.gif | https://i.giphy.com/media/XJtM2nNFCzT3etvzOB/giphy.gif
+        https://i.giphy.com/XJtM2nNFCzT3etvzOB.gif | https://i.giphy.com/media/XJtM2nNFCzT3etvzOB/giphy.gif
+        https://i.giphy.com/XJtM2nNFCzT3etvzOB.webp | https://i.giphy.com/media/XJtM2nNFCzT3etvzOB/giphy.gif
         # Imgur
         https://i.imgur.com/AbC12xY.png | https://i.imgur.com/AbC12xY.png
         https://i.imgur.com/AbC12xY.jpeg | https://i.imgur.com/AbC12xY.jpg
@@ -30,8 +32,10 @@ class SiteRoundTripTest {
         https://i.imgur.com/AbC12xY.mp4 | https://i.imgur.com/AbC12xY.gif
         https://imgur.com/AbC12xY | https://i.imgur.com/AbC12xY.png
         https://i.imgur.com/abcde.webp | https://i.imgur.com/abcde.png
-        # Tenor (filename is ignored by the CDN; the key suffix picks the rendition)
-        https://media.tenor.com/1S3s5iesWX0AAAAM/despierto-gato.gif | https://media.tenor.com/1S3s5iesWX0AAAAM/tenor.gif
+        # Tenor (filename is ignored by the CDN; the key suffix picks the rendition, medium becomes full size)
+        https://media.tenor.com/1S3s5iesWX0AAAAM/despierto-gato.gif | https://media.tenor.com/1S3s5iesWX0AAAAC/tenor.gif
+        https://media1.tenor.com/m/1S3s5iesWX0AAAAC/despierto-gato.gif | https://media.tenor.com/1S3s5iesWX0AAAAC/tenor.gif
+        https://c.tenor.com/6n0lkxsBEQkAAAAM/tenor.gif | https://media.tenor.com/6n0lkxsBEQkAAAAC/tenor.gif
         https://media.tenor.com/6n0lkxsBEQkAAAAC/cat.gif | https://media.tenor.com/6n0lkxsBEQkAAAAC/tenor.gif
         # Discord emoji
         https://cdn.discordapp.com/emojis/1234567890123456789.gif | https://cdn.discordapp.com/emojis/1234567890123456789.gif?size=128

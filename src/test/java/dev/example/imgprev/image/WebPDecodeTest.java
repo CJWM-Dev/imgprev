@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 class WebPDecodeTest {
     static final int RED = 0xFFFF0000, BLUE = 0xFF0000FF, HALF_GREEN = 0x8000FF00, CLEAR = 0;
 
-    static int px(FrameDecoder.Frames f, int frame, int x, int y) { return f.argb()[(frame * f.h() + y) * f.w() + x]; }
+    static int px(FrameDecoder.Frames f, int frame, int x, int y) { return f.frames().get(frame)[y * f.w() + x]; }
 
     static void assertArgbNear(int expected, int actual) {
         for (int shift = 0; shift < 32; shift += 8) {
@@ -25,16 +25,16 @@ class WebPDecodeTest {
     }
 
     @Test void stillLosslessIsDecodedAndScaled() throws IOException {
-        FrameDecoder.Frames f = FrameDecoder.decode(TestWebP.still(300, 150, RED), 256);
+        FrameDecoder.Frames f = FrameDecoder.decode(TestWebP.still(300, 150, RED), 256, 256);
         assertEquals(256, f.w());
         assertEquals(128, f.h());
         assertEquals(1, f.count());
-        assertTrue(Arrays.stream(f.argb()).allMatch(p -> p == RED));
+        assertTrue(Arrays.stream(f.frames().getFirst()).allMatch(p -> p == RED));
     }
 
     @Test void stillKeepsAlpha() throws IOException {
-        FrameDecoder.Frames f = FrameDecoder.decode(TestWebP.still(4, 4, HALF_GREEN), 256);
-        assertEquals(HALF_GREEN, f.argb()[0]);
+        FrameDecoder.Frames f = FrameDecoder.decode(TestWebP.still(4, 4, HALF_GREEN), 256, 256);
+        assertEquals(HALF_GREEN, f.frames().getFirst()[0]);
     }
 
     @Test void animationChunksAreRead() {
@@ -53,7 +53,7 @@ class WebPDecodeTest {
             new Frame(0, 0, 4, 4, RED, 50, true, false),
             new Frame(2, 2, 2, 2, BLUE, 10, true, true),          // disposed to transparent after it shows
             new Frame(0, 0, 2, 2, HALF_GREEN, 200, true, false)   // alpha-blended over red
-        ), 256);
+        ), 256, 256);
         assertEquals(3, f.count());
         assertEquals(4, f.w());
         assertArrayEquals(new int[] {50, 100, 200}, f.delaysMs());
@@ -67,20 +67,20 @@ class WebPDecodeTest {
     @Test void noBlendReplacesPixels() throws IOException {
         FrameDecoder.Frames f = FrameDecoder.decode(TestWebP.animated(4, 4,
             new Frame(0, 0, 4, 4, RED, 100, true, false),
-            new Frame(0, 0, 2, 2, HALF_GREEN, 100, false, false)), 256);
+            new Frame(0, 0, 2, 2, HALF_GREEN, 100, false, false)), 256, 256);
         assertEquals(HALF_GREEN, px(f, 1, 0, 0));
         assertEquals(RED, px(f, 1, 3, 3));
     }
 
     @Test void oversizeCanvasRejected() {
-        byte[] huge = TestWebP.animated(4000, 8, new Frame(0, 0, 4, 4, RED, 100, true, false));
-        MediaException e = assertThrows(MediaException.class, () -> FrameDecoder.decode(huge, 256));
+        byte[] huge = TestWebP.animated(5000, 8, new Frame(0, 0, 4, 4, RED, 100, true, false));
+        MediaException e = assertThrows(MediaException.class, () -> FrameDecoder.decode(huge, 256, 256));
         assertTrue(e.getMessage().startsWith("Image too large"), e.getMessage());
     }
 
     @Test void truncatedFileFailsCleanly() {
         byte[] full = TestWebP.animated(4, 4, new Frame(0, 0, 4, 4, RED, 100, true, false));
         byte[] cut = Arrays.copyOf(full, full.length - 6);
-        assertThrows(IOException.class, () -> FrameDecoder.decode(cut, 256));
+        assertThrows(IOException.class, () -> FrameDecoder.decode(cut, 256, 256));
     }
 }
