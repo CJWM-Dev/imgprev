@@ -1,0 +1,36 @@
+# Builds the mod and runs the unit tests on every push and pull request; the jar is attached to each run.
+# (The in-game tests need a display and the live sites, so they stay local: ./gradlew runClientGameTest.)
+
+name: build
+on: [pull_request, push]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v6
+      - name: validate gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+      - name: setup jdk
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+      - name: setup gradle (caches Minecraft and dependencies between runs)
+        uses: gradle/actions/setup-gradle@v6
+      - name: make gradle wrapper executable
+        run: chmod +x ./gradlew
+      - name: build and run unit tests
+        run: ./gradlew build
+      - name: capture build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: imgprev-jar
+          path: build/libs/
+      - name: capture test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports
+          path: build/reports/tests/
