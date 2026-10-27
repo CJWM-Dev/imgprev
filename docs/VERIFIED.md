@@ -127,6 +127,15 @@ The client game tests in `src/gametest` drive a real 26.2 client and confirm the
 
 AWT: the client's `Main` sets `java.awt.headless=true` unconditionally, so `javax.imageio` never touches a window system; `FrameDecoder` still composites with plain `int[]` (no `Graphics2D`).
 
+## WebP (TwelveMonkeys 3.15.3, checked 2026-10-27)
+
+- Runtime dependencies are exactly `imageio-webp` → `imageio-core`, `imageio-metadata` → `common-lang`, `common-io`, `common-image`. Loom's `include` isn't transitive, so all six are listed; each is nested under `META-INF/jars/` with a generated `fabric.mod.json`. Mod jar: ~600 KB (72 KB before).
+- The reader is registered by hand (`IIORegistry#registerServiceProvider(new WebPImageReaderSpi())` in `FrameDecoder`'s static init); ImageIO's own plugin scan isn't reliable for jars nested in a mod.
+- For animated files `getWidth(i)`/`getHeight(i)`/`read(i)` give each frame's **sub-rectangle**, not the composited canvas. The reader parses ANMF offset, duration and blend/dispose flags but doesn't expose them ("TODO" in `WebPImageReader`), and ignores ANIM. `WebPAnimation` reads those RIFF chunks itself; `FrameDecoder.animate` composites (source-over or replace, dispose to transparent) with the same frame-dropping as GIF.
+- Checked with lossless fixtures built in the unit tests (`TestWebP`), a real lossy+alpha animated sample (gstatic.com/webp/animated/1.webp: 100 frames × 100 ms on 400×300, all frames clean), and an in-game decode in `ChatPreviewClientGameTest`.
+- Not exercised: launching the packaged jar itself (Loom 1.17 has no production-run task), so nested-jar loading relies on Fabric Loader's standard jar-in-jar handling.
+- License: BSD-3-Clause; the jars carry no license file, so its text ships as `META-INF/licenses/TwelveMonkeys-LICENSE.txt`.
+
 ## Klipy API (docs.klipy.com, checked 2026-10-27)
 
 - Lookup: `GET https://api.klipy.com/api/v1/{app_key}/gifs/items?slugs={slug}` → `data.data[]`, each with `slug` and `file.{hd,md,sm,xs}.{gif,webp,jpg,mp4,webm}.{url,width,height,size}`. ImgPrev takes `sm.gif` (≈220 px), falling back to `md`, `xs`, `hd`.

@@ -7,8 +7,11 @@ import static dev.example.imgprev.gametest.GameTests.lastChat;
 import static dev.example.imgprev.gametest.GameTests.typeInChat;
 
 import dev.example.imgprev.ImgPrevClient;
+import dev.example.imgprev.image.FrameDecoder;
 import dev.example.imgprev.image.ImageCache;
 import dev.example.imgprev.token.TokenCodec;
+import java.io.IOException;
+import java.util.Base64;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
@@ -81,8 +84,21 @@ public final class ChatPreviewClientGameTest implements FabricClientGameTest {
 
             ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
             ctx.runOnClient(mc -> ImgPrevClient.CACHE.clear());
+
+            // The bundled WebP reader registers and decodes under Fabric's class loading, not only in unit tests.
+            FrameDecoder.Frames webp;
+            try { webp = FrameDecoder.decode(Base64.getDecoder().decode(WEBP_4X4_RED_THEN_BLUE), 256); }
+            catch (IOException e) { throw new AssertionError("WebP decode in game", e); }
+            assertEquals(2, webp.count(), "webp frames");
+            assertEquals(150, webp.delaysMs()[0], "webp first frame duration");
+            assertEquals(0xFF0000FF, webp.argb()[(4 + 3) * 4 + 3], "webp frame 2 pixel (3,3)");
+            assertEquals(0xFFFF0000, webp.argb()[4 * 4], "webp frame 2 keeps frame 1 underneath");
         }
     }
+
+    /** Animated 4×4 WebP: red for 150 ms, then a 2×2 blue patch at (2,2) for 250 ms (made with the unit tests' TestWebP). */
+    static final String WEBP_4X4_RED_THEN_BLUE = "UklGRoAAAABXRUJQVlA4WAoAAAASAAAAAwAAAwAAQU5JTQYAAAAAAAAAAABBTk1GJgAAAAAAAAAAAAMAAAMAAJYAAABWUDhM"
+        + "DQAAAC8DwAAAKED/C9D/AgAAQU5NRiYAAAABAAABAAABAAABAAD6AAAAVlA4TA0AAAAvAUAAAChAAfrf/wIAAA==";
 
     /** Posts {@code prefix + token} with the token tagged by {@code probe}, then puts the cursor on its label. */
     static void hover(ClientGameTestContext ctx, String prefix, String token, String probe) {

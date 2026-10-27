@@ -1,5 +1,6 @@
 package dev.example.imgprev.image;
 
+import com.twelvemonkeys.imageio.plugins.webp.WebPImageReaderSpi;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -7,24 +8,32 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.metadata.IIOMetadata;
 import javax.imageio.metadata.IIOMetadataNode;
+import javax.imageio.spi.IIORegistry;
 import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.MemoryCacheImageInputStream;
 
 /**
- * GIF/PNG/JPEG bytes → frames scaled to fit {@code maxPx}, stacked into one vertical sheet. Runs off-thread.
- * Pure Java: javax.imageio for decoding, plain int[] for compositing/scaling (no AWT drawing, no Toolkit).
+ * GIF/PNG/JPEG/WebP bytes → frames scaled to fit {@code maxPx}, stacked into one vertical sheet. Runs off-thread.
+ * Pure Java: javax.imageio (+ the bundled TwelveMonkeys WebP reader) for decoding, plain int[] for
+ * compositing/scaling (no AWT drawing, no Toolkit).
  */
 public final class FrameDecoder {
     public static final int MAX_SOURCE_PX = 2048;
     static final int MAX_FRAMES = 64, MAX_SHEET_H = 8192;
-    /** Bounds compositing work for long, large GIFs (frames × canvas pixels). */
+    /** Bounds compositing work for long, large animations (frames × canvas pixels). */
     static final long MAX_COMPOSITE_PIXELS = 400_000_000L;
     static final int MIN_DELAY_MS = 20, SLOW_DELAY_MS = 100;
     static final String GIF_STREAM = "javax_imageio_gif_stream_1.0", GIF_IMAGE = "javax_imageio_gif_image_1.0";
+
+    static {
+        // ImageIO's own plugin scan can't be relied on to see jars nested in a Fabric mod, so register by hand.
+        IIORegistry.getDefaultInstance().registerServiceProvider(new WebPImageReaderSpi());
+    }
 
     private FrameDecoder() {}
 
@@ -32,6 +41,14 @@ public final class FrameDecoder {
     public record Frames(int w, int h, int count, int[] argb, int[] delaysMs) {
         public int sheetH() { return h * count; }
     }
+
+    enum Dispose { NONE, BACKGROUND, PREVIOUS }
+
+    /** Where a source frame goes on the canvas, how long it shows, and what happens to it afterwards. */
+    record Placement(int left, int top, int delayMs, Dispose dispose, boolean blend) {}
+
+    @FunctionalInterface
+    interface Placements { Placement at(int index) throws IOException; }
 
     public static Frames decode(byte[] data, int maxPx) throws IOException {
         try (ImageInputStream in = new MemoryCacheImageInputStream(new ByteArrayInputStream(data))) {
@@ -41,7 +58,14 @@ public final class FrameDecoder {
             try {
                 reader.setInput(in, false, false);
                 checkSize(reader.getWidth(0), reader.getHeight(0));   // header only, before any pixels are decoded
-                return "gif".equalsIgnoreCase(reader.getFormatName()) ? gif(reader, maxPx) : still(reader.read(0), maxPx);
+                return switch (reader.getFormatName().toLowerCase(Locale.ROOT)) {
+                    case "gif" -> gif(reader, maxPx);
+                    case "webp" -> {
+                        WebPAnimation anim = WebPAnimation.parse(data);
+                        yield anim == null ? still(reader.read(0), maxPx) : webp(reader, anim, maxPx);
+                    }
+                    default -> still(reader.read(0), maxPx);
+                };
             } finally {
                 reader.dispose();
             }
@@ -56,46 +80,55 @@ public final class FrameDecoder {
 
     static Frames gif(ImageReader reader, int maxPx) throws IOException {
         int[] screen = logicalScreen(reader);
-        int cw = screen[0], ch = screen[1];
-        checkSize(cw, ch);
         int total;
         try { total = reader.getNumImages(true); } catch (IOException e) { total = -1; }   // -1: unknown, read until it stops
+        return animate(reader, screen[0], screen[1], total, maxPx, i -> gifPlacement((IIOMetadataNode) reader.getImageMetadata(i).getAsTree(GIF_IMAGE)));
+    }
+
+    static Frames webp(ImageReader reader, WebPAnimation anim, int maxPx) throws IOException {
+        List<WebPAnimation.Frame> frames = anim.frames();
+        return animate(reader, anim.canvasW(), anim.canvasH(), frames.size(), maxPx, i -> {
+            WebPAnimation.Frame f = frames.get(i);
+            return new Placement(f.x(), f.y(), normalizeDelay(f.durationMs()), f.dispose() ? Dispose.BACKGROUND : Dispose.NONE, f.blend());
+        });
+    }
+
+    /** Composites source frames on a canvas; long animations keep every step-th frame and fold in the dropped frames' time. */
+    static Frames animate(ImageReader reader, int cw, int ch, int total, int maxPx, Placements placements) throws IOException {
+        checkSize(cw, ch);
         int budget = (int) Math.max(1, Math.min(Integer.MAX_VALUE, MAX_COMPOSITE_PIXELS / ((long) cw * ch)));
         int sourceFrames = total > 0 ? Math.min(total, budget) : budget;
         int[] out = fit(cw, ch, maxPx);
         int keep = Math.max(1, Math.min(MAX_FRAMES, MAX_SHEET_H / out[1]));
-        int step = total > 0 ? Math.ceilDiv(sourceFrames, keep) : 1;   // long GIFs: keep every step-th frame
+        int step = total > 0 ? Math.ceilDiv(sourceFrames, keep) : 1;
 
         int[] canvas = new int[cw * ch];
         List<int[]> frames = new ArrayList<>();
         List<Integer> delays = new ArrayList<>();
         for (int i = 0; i < sourceFrames; i++) {
             BufferedImage img;
-            IIOMetadataNode md;
+            Placement p;
             try {
                 checkSize(reader.getWidth(i), reader.getHeight(i));
                 img = reader.read(i);
-                md = (IIOMetadataNode) reader.getImageMetadata(i).getAsTree(GIF_IMAGE);
+                p = placements.at(i);
             } catch (IndexOutOfBoundsException e) {
                 break;
             } catch (IOException e) {
                 if (i == 0) throw e;
-                break;   // truncated GIF: keep what decoded
+                break;   // truncated file: keep what decoded
             }
-            IIOMetadataNode desc = child(md, "ImageDescriptor"), gce = child(md, "GraphicControlExtension");
-            int left = intAttr(desc, "imageLeftPosition"), top = intAttr(desc, "imageTopPosition");
-            String disposal = gce == null ? "none" : gce.getAttribute("disposalMethod");
-            int[] previous = "restoreToPrevious".equals(disposal) ? canvas.clone() : null;
+            int[] previous = p.dispose() == Dispose.PREVIOUS ? canvas.clone() : null;
 
-            paint(canvas, cw, ch, img, left, top);
+            paint(canvas, cw, ch, img, p.left(), p.top(), p.blend());
             if (i % step == 0) {
                 if (frames.size() == keep) break;
                 frames.add(resize(canvas, cw, ch, out[0], out[1]));
                 delays.add(0);
             }
-            delays.set(delays.size() - 1, delays.getLast() + delayMs(gce));   // dropped frames add to the shown one
+            delays.set(delays.size() - 1, delays.getLast() + p.delayMs());   // dropped frames add to the shown one
 
-            if ("restoreToBackgroundColor".equals(disposal)) clear(canvas, cw, ch, left, top, img.getWidth(), img.getHeight());
+            if (p.dispose() == Dispose.BACKGROUND) clear(canvas, cw, ch, p.left(), p.top(), img.getWidth(), img.getHeight());
             else if (previous != null) canvas = previous;
         }
 
@@ -104,11 +137,22 @@ public final class FrameDecoder {
         return new Frames(out[0], out[1], frames.size(), sheet, delays.stream().mapToInt(Integer::intValue).toArray());
     }
 
-    /** GIF delays are in 1/100 s; like browsers, near-zero delays play at 100 ms. */
-    static int delayMs(IIOMetadataNode gce) {
-        int ms = gce == null ? 0 : intAttr(gce, "delayTime") * 10;
-        return ms < MIN_DELAY_MS ? SLOW_DELAY_MS : ms;
+    /** GIF transparency is 1-bit, so blending reduces to copying opaque pixels. */
+    static Placement gifPlacement(IIOMetadataNode md) {
+        IIOMetadataNode desc = child(md, "ImageDescriptor"), gce = child(md, "GraphicControlExtension");
+        Dispose dispose = switch (gce == null ? "none" : gce.getAttribute("disposalMethod")) {
+            case "restoreToBackgroundColor" -> Dispose.BACKGROUND;
+            case "restoreToPrevious" -> Dispose.PREVIOUS;
+            default -> Dispose.NONE;
+        };
+        return new Placement(intAttr(desc, "imageLeftPosition"), intAttr(desc, "imageTopPosition"), delayMs(gce), dispose, true);
     }
+
+    /** GIF delays are in 1/100 s. */
+    static int delayMs(IIOMetadataNode gce) { return normalizeDelay(gce == null ? 0 : intAttr(gce, "delayTime") * 10); }
+
+    /** Like browsers, near-zero delays play at 100 ms. */
+    static int normalizeDelay(int ms) { return ms < MIN_DELAY_MS ? SLOW_DELAY_MS : ms; }
 
     static int[] logicalScreen(ImageReader reader) throws IOException {
         int w = 0, h = 0;
@@ -121,16 +165,29 @@ public final class FrameDecoder {
         return new int[] {Math.max(w, reader.getWidth(0)), Math.max(h, reader.getHeight(0))};
     }
 
-    /** GIF transparency is 1-bit, so frames copy their opaque pixels over the canvas. */
-    static void paint(int[] canvas, int cw, int ch, BufferedImage img, int left, int top) {
+    /** Draws a frame onto the canvas: alpha-blended (source-over) or, with {@code blend} off, replacing pixels outright. */
+    static void paint(int[] canvas, int cw, int ch, BufferedImage img, int left, int top, boolean blend) {
         int w = img.getWidth(), h = img.getHeight();
         int[] px = img.getRGB(0, 0, w, h, null, 0, w);
         for (int y = Math.max(0, -top); y < h && top + y < ch; y++) {
             for (int x = Math.max(0, -left); x < w && left + x < cw; x++) {
-                int p = px[y * w + x];
-                if ((p >>> 24) != 0) canvas[(top + y) * cw + left + x] = p;
+                int i = (top + y) * cw + left + x;
+                canvas[i] = blend ? over(px[y * w + x], canvas[i]) : px[y * w + x];
             }
         }
+    }
+
+    /** Source-over in non-premultiplied ARGB. */
+    static int over(int src, int dst) {
+        int sa = src >>> 24;
+        if (sa == 255) return src;
+        if (sa == 0) return dst;
+        int dw = (dst >>> 24) * (255 - sa) / 255;   // how much of dst shows through
+        int a = sa + dw;
+        int r = (((src >> 16) & 0xFF) * sa + ((dst >> 16) & 0xFF) * dw) / a;
+        int g = (((src >> 8) & 0xFF) * sa + ((dst >> 8) & 0xFF) * dw) / a;
+        int b = ((src & 0xFF) * sa + (dst & 0xFF) * dw) / a;
+        return a << 24 | r << 16 | g << 8 | b;
     }
 
     static void clear(int[] canvas, int cw, int ch, int left, int top, int w, int h) {
