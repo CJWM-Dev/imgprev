@@ -4,6 +4,13 @@
   "version": "${version}",
   "name": "ImgPrev",
   "description": "Hover previews for image tokens in chat.",
+  "authors": ["ElongateArms"],
+  "contact": {
+    "homepage": "https://github.com/CJWM-Dev/imgprev",
+    "sources": "https://github.com/CJWM-Dev/imgprev",
+    "issues": "https://github.com/CJWM-Dev/imgprev/issues"
+  },
+  "license": "All Rights Reserved",
   "environment": "client",
   "entrypoints": {
     "client": ["dev.example.imgprev.ImgPrevClient"],
