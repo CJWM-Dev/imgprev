@@ -5,8 +5,9 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 public final class SiteRegistry {
+    static final KlipyCodec KLIPY_API = new KlipyCodec();
     private static final List<SiteCodec> ALL = List.of(new GiphyCodec(), new ImgurCodec(), new TenorMediaCodec(),
-        new DiscordEmojiCodec(), new DiscordAttachmentCodec(), new GyazoCodec(), new KlipyCodec());
+        new DiscordEmojiCodec(), new DiscordAttachmentCodec(), new GyazoCodec(), new KlipyMediaCodec(), KLIPY_API);
 
     private SiteRegistry() {}
 

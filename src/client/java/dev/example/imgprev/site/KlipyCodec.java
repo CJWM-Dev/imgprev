@@ -21,8 +21,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * klipy.com/gifs/{slug}. Payload = slug; the media URL comes from Klipy's Items API with the player's own key
- * (docs.klipy.com/gifs-api/gifs-items-api) and must be on Klipy's CDN (docs.klipy.com/network-requirements).
+ * Slug tokens from klipy.com/gifs/{slug} page links. Every viewer needs their own API key to look these up, so new
+ * tokens are never made this way: {@link LinkConverter} resolves page links on the sender's side into keyless
+ * {@link KlipyMediaCodec} tokens. This codec stays so older slug tokens still show for players who have a key.
+ * Lookups use Klipy's Items API (docs.klipy.com/gifs-api/gifs-items-api); media must be on Klipy's CDN
+ * (docs.klipy.com/network-requirements).
  */
 final class KlipyCodec implements SiteCodec {
     static final Pattern SLUG = Pattern.compile("[A-Za-z0-9-]{3,100}");
@@ -31,7 +34,7 @@ final class KlipyCodec implements SiteCodec {
     static final Pattern API_KEY = Pattern.compile("[A-Za-z0-9_-]{8,128}");
     static final String[] SIZES = {"sm", "md", "xs", "hd"};   // sm ≈ 220 px, closest to the preview size
     static final int MAX_JSON_BYTES = 1 << 20;
-    private static final Set<String> HOSTS = Set.of("klipy.com", "www.klipy.com");
+    private static final Set<String> PAGE_HOSTS = Set.of("klipy.com", "www.klipy.com");
     private static final Set<String> API = Set.of("api.klipy.com");
     private static final Set<String> CDN = Set.of("static.klipy.com", "static1.klipy.com", "static2.klipy.com");
 
@@ -42,16 +45,22 @@ final class KlipyCodec implements SiteCodec {
     });
 
     public char code() { return 'k'; }
-    public String name() { return "klipy"; }
+    public String name() { return "klipy-api"; }
     public String label() { return "GIF"; }
-    public Set<String> acceptedHosts() { return HOSTS; }
+    public Set<String> acceptedHosts() { return Set.of(); }   // decode only; see the class comment
     public Pattern payloadPattern() { return SLUG; }
     public Set<String> allowedDownloadHosts() { return CDN; }
 
-    public Optional<String> payloadFrom(URI u) {
+    public Optional<String> payloadFrom(URI u) { return pageSlug(u); }
+
+    /** The slug of a klipy.com/gifs page link. The pages sit behind a Cloudflare check, so only the API resolves them. */
+    static Optional<String> pageSlug(URI u) {
+        if (u.getHost() == null || !PAGE_HOSTS.contains(u.getHost().toLowerCase(Locale.ROOT))) return Optional.empty();
         Matcher m = PATH.matcher(u.getPath());
         return m.matches() ? Optional.of(m.group(1)) : Optional.empty();
     }
+
+    static boolean hasApiKey() { return !apiKey.get().isBlank(); }
 
     public CompletableFuture<URI> mediaUri(String slug) {
         URI cached = resolved.get(slug);

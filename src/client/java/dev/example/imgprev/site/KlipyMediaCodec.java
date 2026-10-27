@@ -1,0 +1,50 @@
+package dev.example.imgprev.site;
+
+import dev.example.imgprev.token.Base62;
+import java.math.BigInteger;
+import java.net.URI;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * Klipy CDN addresses, {@code static.klipy.com/ii/{32 hex}/{2 hex}/{2 hex}/{name}.{ext}}: viewers need no API key.
+ * Payload: ext code {@code g|w|p|j} + Base62(hash) - Base62(the two 2-hex dirs) - name. static2 mirrors static
+ * byte for byte, so everything is rebuilt on static.klipy.com.
+ */
+final class KlipyMediaCodec implements SiteCodec {
+    static final Pattern PATH = Pattern.compile("^/ii/([0-9a-f]{32})/([0-9a-f]{2})/([0-9a-f]{2})/([A-Za-z0-9]{4,32})\\.((?i)gif|webp|png|jpe?g)$");
+    static final Pattern P = Pattern.compile("[gwpj][0-9A-Za-z]{1,22}-[0-9A-Za-z]{1,3}-[A-Za-z0-9]{4,32}");
+    private static final Set<String> HOSTS = Set.of("static.klipy.com", "static1.klipy.com", "static2.klipy.com");
+    private static final Set<String> DOWNLOAD = Set.of("static.klipy.com", "static2.klipy.com");
+
+    public char code() { return 'y'; }
+    public String name() { return "klipy"; }
+    public String label() { return "GIF"; }
+    public Set<String> acceptedHosts() { return HOSTS; }
+    public Pattern payloadPattern() { return P; }
+    public Set<String> allowedDownloadHosts() { return DOWNLOAD; }
+
+    public Optional<String> payloadFrom(URI u) {
+        Matcher m = PATH.matcher(u.getPath());
+        if (!m.matches()) return Optional.empty();
+        String ext = m.group(5).toLowerCase(Locale.ROOT);
+        char e = switch (ext) { case "gif" -> 'g'; case "webp" -> 'w'; case "png" -> 'p'; default -> 'j'; };
+        return Optional.of(e + Base62.encode(new BigInteger(m.group(1), 16)) + "-"
+            + Base62.encode(new BigInteger(m.group(2) + m.group(3), 16)) + "-" + m.group(4));
+    }
+
+    public CompletableFuture<URI> mediaUri(String p) {
+        String[] f = p.substring(1).split("-");
+        String hash = Base62.decode(f[0]).toString(16), dirs = Base62.decode(f[1]).toString(16);
+        if (hash.length() > 32 || dirs.length() > 4) return CompletableFuture.failedFuture(new IllegalArgumentException("payload"));
+        hash = Base62.leftPad(hash, 32);
+        dirs = Base62.leftPad(dirs, 4);
+        String ext = switch (p.charAt(0)) { case 'g' -> "gif"; case 'w' -> "webp"; case 'p' -> "png"; default -> "jpg"; };
+        return CompletableFuture.completedFuture(URI.create("https://static.klipy.com/ii/" + hash + "/" + dirs.substring(0, 2) + "/"
+            + dirs.substring(2) + "/" + f[2] + "." + ext));
+    }
+}
