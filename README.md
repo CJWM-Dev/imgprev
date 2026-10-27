@@ -1,5 +1,7 @@
 # ImgPrev
 
+> **⚠️ Warning:** **Imgur is blocked in the UK**, so Imgur images won't load for UK players. **Klipy page links need a Klipy API key** (`/imgprev klipy key <key>`). Without one, use the GIF's image address from the Klipy page instead.
+
 Hover previews for image links in Minecraft chat, for Fabric 26.2.
 
 ImgPrev turns image links into short tokens you can send without the link text. Anyone with ImgPrev sees a small `[🖼 GIF]` label, and hovering over it shows the image or animated GIF. Players without the mod see the token as plain text, so nothing breaks for them.
