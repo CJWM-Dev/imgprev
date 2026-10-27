@@ -163,3 +163,8 @@ AWT: the client's `Main` sets `java.awt.headless=true` unconditionally, so `java
 | Imgur | **Not verifiable from the UK.** Imgur geo-blocks the UK: `i.imgur.com/{anything}` returns **200 `image/png`** (34,641-byte "not available" placeholder) for every hash and extension; `imgur.com` returns 403 "Content not available in your region". UK recipients will see that placeholder instead of the image. Extension swapping still needs a check from a non-UK connection. |
 | Gyazo | Unknown id on `i.gyazo.com/{hex}.{ext}` → **503 `text/plain`** (not 404). Gyazo stores captures as PNG, switching to JPG when > 1 MB, so "page link without ext → png" may be wrong for large captures. Still needs a real capture URL to confirm. |
 | Discord | Unknown emoji → 404 JSON; unsigned attachment URL → 404, as expected. |
+
+## Releases (checked 2026-10-27)
+
+- `.github/workflows/build.yml`: after the build job passes on a push to `main`, the release job reads `mod_version` from gradle.properties and, if there's no `v{version}` release yet, runs `gh release create v{version} build/libs/imgprev-{version}.jar --title "ImgPrev {version}" --target $GITHUB_SHA --generate-notes` with the jar the build job uploaded. Same scheme as the author's Bazaar Assist repo: bumping the version is what publishes a release; other pushes leave releases alone.
+- Action versions current on 2026-10-27: `actions/checkout@v7`, `actions/setup-java@v6`, `gradle/actions@v6`, `actions/upload-artifact@v7`, `actions/download-artifact@v8` (artifacts v4+ share one backend, so v7 uploads download with v8).
