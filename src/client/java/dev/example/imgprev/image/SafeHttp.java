@@ -57,7 +57,7 @@ public final class SafeHttp {
                 if (status != 200) throw new HttpStatusException(status);
                 String type = r.headers().firstValue("content-type").orElse("").toLowerCase(Locale.ROOT);
                 if (!type.startsWith(contentTypePrefix)) throw new MediaException(contentTypePrefix.equals("image/") ? "Not an image" : "Unexpected response");
-                if (r.headers().firstValueAsLong("content-length").orElse(-1) > maxBytes) throw new MediaException("File too large");
+                if (r.headers().firstValueAsLong("content-length").orElse(-1) > maxBytes) throw tooLarge(maxBytes);
                 return readCapped(in, maxBytes);
             }
         }
@@ -77,11 +77,13 @@ public final class SafeHttp {
         int total = 0;
         for (int n; (n = in.read(buf)) != -1; ) {
             total += n;
-            if (total > maxBytes) throw new MediaException("File too large");
+            if (total > maxBytes) throw tooLarge(maxBytes);
             out.write(buf, 0, n);
         }
         return out.toByteArray();
     }
+
+    static MediaException tooLarge(int maxBytes) { return new MediaException("File too large (over " + Math.ceilDiv(maxBytes, 1 << 20) + " MB)"); }
 
     static ThreadFactory daemon(String name) {
         AtomicInteger n = new AtomicInteger();

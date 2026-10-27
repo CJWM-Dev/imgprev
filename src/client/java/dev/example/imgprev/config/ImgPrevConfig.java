@@ -19,11 +19,15 @@ import net.fabricmc.loader.api.FabricLoader;
 public final class ImgPrevConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final long MB = 1024L * 1024L;
+    static final int VERSION = 1;
+    public static final int MAX_DOWNLOAD_MB = 128;
 
+    /** 0 in files written by 0.1.x, which had no version. */
+    public int configVersion;
     public boolean renderEnabled = true;
     public boolean requireShift = false;
-    public int cacheBudgetMB = 128;
-    public int maxDownloadMB = 8;
+    public int cacheBudgetMB = 256;
+    public int maxDownloadMB = 32;
     public int maxDrawPx = 256;
     public Map<String, Boolean> sites = defaultSites();
     public String klipyApiKey = "";
@@ -50,11 +54,21 @@ public final class ImgPrevConfig {
             try { cfg = GSON.fromJson(Files.readString(p), ImgPrevConfig.class); }
             catch (IOException | JsonParseException e) { ImgPrevClient.LOG.warn("Couldn't read {}, using defaults: {}", p, e.toString()); }
         }
-        boolean fresh = cfg == null && !Files.exists(p);
+        boolean parsed = cfg != null, fresh = !parsed && !Files.exists(p);
         if (cfg == null) cfg = new ImgPrevConfig();
+        boolean migrated = cfg.migrate();
         cfg.sanitize();
-        if (fresh) cfg.save();   // never overwrite a file we failed to parse
+        if (fresh || (parsed && migrated)) cfg.save();   // never overwrite a file we failed to parse
         return cfg;
+    }
+
+    /** 0.1.x's defaults were too small for most GIFs; files still on them move to the new ones, chosen values stay. */
+    boolean migrate() {
+        if (configVersion >= VERSION) return false;
+        if (maxDownloadMB == 8) maxDownloadMB = 32;
+        if (cacheBudgetMB == 128) cacheBudgetMB = 256;
+        configVersion = VERSION;
+        return true;
     }
 
     public void save() {
@@ -64,7 +78,7 @@ public final class ImgPrevConfig {
 
     void sanitize() {
         cacheBudgetMB = Math.clamp(cacheBudgetMB, 16, 2048);
-        maxDownloadMB = Math.clamp(maxDownloadMB, 1, 64);
+        maxDownloadMB = Math.clamp(maxDownloadMB, 1, MAX_DOWNLOAD_MB);
         maxDrawPx = Math.clamp(maxDrawPx, 32, 512);
         if (sites == null) sites = new LinkedHashMap<>();
         defaultSites().forEach(sites::putIfAbsent);

@@ -44,12 +44,14 @@ public final class ConfigScreen {
 
         ConfigCategory limits = builder.getOrCreateCategory(text("Limits"));
         limits.addEntry(e.startIntSlider(text("Preview size (px)"), cfg.maxDrawPx, 32, 512).setDefaultValue(defaults.maxDrawPx)
-            .setTooltip(text("Images are scaled down so their longest side fits this"))
+            .setTooltip(text("Images are scaled down so their longest side fits this many GUI pixels."), text("They're still drawn at your screen's full resolution."))
             .setSaveConsumer(v -> cfg.maxDrawPx = v).build());
         limits.addEntry(e.startIntField(text("Image memory (MB)"), cfg.cacheBudgetMB).setMin(16).setMax(2048).setDefaultValue(defaults.cacheBudgetMB)
             .setTooltip(text("Older previews are dropped when this fills up"))
             .setSaveConsumer(v -> cfg.cacheBudgetMB = v).build());
-        limits.addEntry(e.startIntSlider(text("Largest download (MB)"), cfg.maxDownloadMB, 1, 64).setDefaultValue(defaults.maxDownloadMB)
+        limits.addEntry(e.startIntSlider(text("Largest download (MB)"), cfg.maxDownloadMB, 1, ImgPrevConfig.MAX_DOWNLOAD_MB)
+            .setDefaultValue(defaults.maxDownloadMB)
+            .setTooltip(text("Bigger files show \"File too large\" instead of a preview"))
             .setSaveConsumer(v -> cfg.maxDownloadMB = v).build());
 
         builder.setSavingRunnable(() -> {
