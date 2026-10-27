@@ -5,7 +5,11 @@
   "name": "ImgPrev",
   "description": "Hover previews for image tokens in chat.",
   "environment": "client",
-  "entrypoints": { "client": ["dev.example.imgprev.ImgPrevClient"] },
+  "entrypoints": {
+    "client": ["dev.example.imgprev.ImgPrevClient"],
+    "modmenu": ["dev.example.imgprev.config.ModMenuIntegration"]
+  },
   "mixins": [ { "config": "imgprev.client.mixins.json", "environment": "client" } ],
-  "depends": { "fabricloader": ">=0.19.3", "minecraft": "~26.2", "java": ">=25", "fabric-api": "*" }
+  "depends": { "fabricloader": ">=0.19.3", "minecraft": "~26.2", "java": ">=25", "fabric-api": "*" },
+  "suggests": { "modmenu": "*", "cloth-config": "*" }
 }

@@ -12,6 +12,7 @@ import static dev.example.imgprev.gametest.GameTests.typeInChat;
 
 import dev.example.imgprev.ImgPrevClient;
 import dev.example.imgprev.config.ImgPrevConfig;
+import dev.example.imgprev.config.ModMenuIntegration;
 import dev.example.imgprev.image.ImageCache;
 import dev.example.imgprev.token.TokenCodec;
 import java.io.IOException;
@@ -26,7 +27,8 @@ import org.lwjgl.glfw.GLFW;
 
 /** /imgprev settings take effect, persist to config/imgprev.json, and reload from it. */
 public final class SettingsClientGameTest implements FabricClientGameTest {
-    static final String KLIPY = TokenCodec.encode("https://klipy.com/gifs/hello-hi-662").orElseThrow();
+    /** An old Klipy slug token (ImgPrev 0.1.0 made these from klipy.com page links); viewing one needs an API key. */
+    static final String KLIPY = "<~1kred-moon-flyinga~>";
 
     @Override public void runTest(ClientGameTestContext ctx) {
         try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
@@ -53,8 +55,8 @@ public final class SettingsClientGameTest implements FabricClientGameTest {
             typeInChat(ctx, "/imgprev site giphy on");
 
             // Klipy without a key explains itself, without any network call.
-            typeInChat(ctx, "/imgprev site klipy on");
-            assertEquals("klipy previews on (set a key: /imgprev klipy key <key>)", lastChat(ctx), "klipy hint");
+            typeInChat(ctx, "/imgprev site klipy-api on");
+            assertEquals("klipy-api previews on (set a key: /imgprev klipy key <key>)", lastChat(ctx), "klipy hint");
             ctx.setScreen(() -> new ChatScreen("", false));
             hover(ctx, "klipy: ", KLIPY, "probe-klipy");
             ImageCache.Entry klipy = awaitLoaded(ctx, KLIPY);
@@ -93,6 +95,13 @@ public final class SettingsClientGameTest implements FabricClientGameTest {
             typeInChat(ctx, "/imgprev cache clear");
             assertEquals("Preview cache cleared", lastChat(ctx), "cache clear feedback");
             assertEquals(0, ctx.computeOnClient(mc -> ImgPrevClient.CACHE.size()), "cache empty");
+
+            // Mod Menu's settings button opens the Cloth Config screen (both are present in dev runs).
+            ctx.setScreen(() -> new ModMenuIntegration().getModConfigScreenFactory().create(null));
+            ctx.waitTicks(2);
+            assertTrue(ctx.computeOnClient(mc -> mc.gui.screen() != null && !(mc.gui.screen() instanceof ChatScreen)), "settings screen open");
+            ctx.takeScreenshot("settings-screen");
+            ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
         }
     }
 

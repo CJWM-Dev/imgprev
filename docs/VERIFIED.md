@@ -142,6 +142,17 @@ AWT: the client's `Main` sets `java.awt.headless=true` unconditionally, so `java
 - Media hosts (network-requirements page): `static.klipy.com`, `static1.klipy.com`, `static2.klipy.com`. The API host is `api.klipy.com`.
 - Testing-mode keys: 100 requests/hour; ImgPrev caches slug → URL.
 - Share links: `klipy.com/{gifs|stickers|clips|memes}/{slug}`; only `/gifs/` is supported (stickers would need the sticker endpoint, clips are video). Slugs are lowercase words and digits joined by `-`.
+- GIF pages (`klipy.com/gifs/{slug}`) answer non-browser requests with **403 `cf-mitigated: challenge`** (Cloudflare), so a page link can only be resolved through the API.
+- CDN addresses are `static{,1,2}.klipy.com/ii/{32 hex}/{2 hex}/{2 hex}/{name}.{ext}` (survey of ~4,000 on the homepage; GIF/WebP names are 8 characters). `static2` serves the same bytes as `static`; `static1` didn't resolve.
+- **Design change from the handoff:** slug tokens (`k`) made every *viewer* need their own API key, so on a fresh install Klipy tokens just showed as raw text (seen on Hypixel). New tokens carry the CDN address instead (site `y`, no key for anyone); the *sender's* key turns a page link into that address in `/imglink` and auto-convert. `k` stays decode-only for tokens made by 0.1.0.
+
+## Sending (Fabric API 0.161.0, `fabric-message-api-v1`)
+
+`ClientPacketListener#sendChat` / `#sendCommand` fire `ALLOW_CHAT` → (if allowed) `MODIFY_CHAT` → `CHAT`, and the same for commands, all at HEAD before signing. Auto-convert replaces links in `MODIFY_*`; a message needing a Klipy lookup is cancelled in `ALLOW_*` and re-sent once converted (the re-send passes straight through, its links being tokens by then). The server refuses chat and commands over 256 characters.
+
+## Settings screen (optional dependencies, checked 2026-10-27)
+
+- Mod Menu **20.0.3** (`com.terraformersmc:modmenu`, maven.terraformersmc.com; depends on Minecraft `>=26.2 <26.3-alpha.3`) and Cloth Config **26.2.155** (`me.shedaniel.cloth:cloth-config-fabric`, maven.shedaniel.me; mod id `cloth-config`) are the 26.2 builds. Neither is bundled: `compileOnly` + `localRuntime` (dev runs and in-game tests), `suggests` in fabric.mod.json, and the `modmenu` entrypoint only touches Cloth classes when `cloth-config` is loaded.
 
 ## Live URL checks (from a GB connection, UA `ImgPrev/0.1 (Minecraft mod)`)
 
