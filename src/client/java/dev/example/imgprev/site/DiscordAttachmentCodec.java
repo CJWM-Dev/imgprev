@@ -1,11 +1,13 @@
 package dev.example.imgprev.site;
 
 import dev.example.imgprev.token.Base62;
+import dev.example.imgprev.token.Mixed;
 import java.math.BigInteger;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -24,6 +26,14 @@ final class DiscordAttachmentCodec implements SiteCodec {
     static final Pattern SNOWFLAKE = Pattern.compile("\\d{15,21}");
     static final Pattern P = Pattern.compile("([0-9A-Za-z]+-){5}[0-9A-Za-z]+");
     private static final Set<String> HOSTS = Set.of("cdn.discordapp.com", "media.discordapp.net");
+    /** Pasted images are named image.png (unknown.png before 2023). */
+    static final List<String> DEFAULT_NAMES = List.of("image.png", "unknown.png");
+    static final List<String> EXTS = List.of("png", "jpg", "gif", "PNG", "jpeg", "webp", "JPG", "mp4");
+    static final String NAME_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz._-";
+    /** Usual {@code ex - is}: 24 hours, and 14 days in early signed links. */
+    static final List<Long> LIFETIMES = List.of(86_400L, 1_209_600L);
+    /** {@code is} is stored as 31 bits from here (September 2020), which lasts until 2088. */
+    static final long IS_EPOCH = 1_600_000_000L;
 
     public char code() { return 'd'; }
     public String name() { return "discord"; }
@@ -55,6 +65,47 @@ final class DiscordAttachmentCodec implements SiteCodec {
     }
 
     @Override public OptionalLong expiresAtEpochSec(String p) { return OptionalLong.of(Base62.decode(p.split("-")[2]).longValue()); }
+
+    /**
+     * One number: the two snowflakes, {@code is} since 2020, {@code ex} as a lifetime when it's a usual one, {@code hm},
+     * then the filename (Discord's default names as one symbol, else the name with a common extension split off).
+     */
+    @Override public String compact(String p) {
+        String[] f = p.split("-");
+        String name = nameDec(f[5]).orElseThrow(() -> new IllegalArgumentException("name"));
+        long ex = Base62.decode(f[2]).longValue(), is = Base62.decode(f[3]).longValue();
+        Mixed m = new Mixed();
+        int known = DEFAULT_NAMES.indexOf(name);
+        if (known < 0) {
+            int dot = name.lastIndexOf('.'), ext = dot > 0 ? EXTS.indexOf(name.substring(dot + 1)) : -1;
+            m.putString(ext < 0 ? name : name.substring(0, dot), NAME_CHARS, 1, 100).put(ext < 0 ? EXTS.size() : ext, EXTS.size() + 1);
+        }
+        m.put(known < 0 ? DEFAULT_NAMES.size() : known, DEFAULT_NAMES.size() + 1).putBits(Base62.decode(f[4]), 256);
+        int life = LIFETIMES.indexOf(ex - is);
+        if (life < 0) m.putBits(BigInteger.valueOf(ex), 32);
+        return m.put(life < 0 ? LIFETIMES.size() : life, LIFETIMES.size() + 1).putBits(BigInteger.valueOf(is - IS_EPOCH), 31)
+            .putBits(Base62.decode(f[1]), 63).putBits(Base62.decode(f[0]), 63).toBase62();
+    }
+
+    @Override public Optional<String> expand(String s) {
+        return Mixed.fromBase62(s).flatMap(m -> {
+            BigInteger ch = m.takeBits(63), att = m.takeBits(63), is = m.takeBits(31).add(BigInteger.valueOf(IS_EPOCH));
+            int life = m.take(LIFETIMES.size() + 1);
+            BigInteger ex = life < LIFETIMES.size() ? is.add(BigInteger.valueOf(LIFETIMES.get(life))) : m.takeBits(32);
+            BigInteger hm = m.takeBits(256);
+            int known = m.take(DEFAULT_NAMES.size() + 1);
+            String name;
+            if (known < DEFAULT_NAMES.size()) name = DEFAULT_NAMES.get(known);
+            else {
+                int ext = m.take(EXTS.size() + 1);
+                String base = m.takeString(NAME_CHARS, 1, 100);
+                name = ext < EXTS.size() ? base + "." + EXTS.get(ext) : base;
+            }
+            if (!m.isEmpty() || !safeName(name)) return Optional.empty();
+            return Optional.of(String.join("-", Base62.encode(ch), Base62.encode(att), Base62.encode(ex), Base62.encode(is),
+                Base62.encode(hm), nameEnc(name)));
+        });
+    }
 
     static String b62(String digits, int radix) { return Base62.encode(new BigInteger(digits, radix)); }
     static String dec(String b62, int radix, int pad) { String s = Base62.decode(b62).toString(radix); return pad > 0 ? Base62.leftPad(s, pad) : s; }

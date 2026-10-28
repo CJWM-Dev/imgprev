@@ -1,6 +1,7 @@
 package dev.example.imgprev.site;
 
 import dev.example.imgprev.token.Base62;
+import dev.example.imgprev.token.Mixed;
 import java.math.BigInteger;
 import java.net.URI;
 import java.util.Optional;
@@ -28,6 +29,19 @@ final class DiscordEmojiCodec implements SiteCodec {
         // The Discord client links animated emoji as .webp?animated=true.
         boolean animated = m.group(2).equalsIgnoreCase("gif") || "true".equals(DiscordAttachmentCodec.query(u.getRawQuery()).get("animated"));
         return Optional.of((animated ? 'a' : 's') + Base62.encode(new BigInteger(m.group(1))));
+    }
+
+    /** Snowflake and animated flag in one number. */
+    @Override public String compact(String p) {
+        return new Mixed().putBits(Base62.decode(p.substring(1)), 64).put(p.charAt(0) == 'a' ? 1 : 0, 2).toBase62();
+    }
+
+    @Override public Optional<String> expand(String s) {
+        return Mixed.fromBase62(s).flatMap(m -> {
+            char kind = m.take(2) == 1 ? 'a' : 's';
+            String id = Base62.encode(m.takeBits(64));
+            return m.isEmpty() ? Optional.of(kind + id) : Optional.empty();
+        });
     }
 
     public CompletableFuture<URI> mediaUri(String p) {

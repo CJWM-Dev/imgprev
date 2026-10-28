@@ -14,7 +14,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class DiscordAttachmentCodecTest {
     static final String CH = "1100000000000000001", ATT = "1300000000000000002";
-    static final String EX = "0000abcd", IS = "000000ff", HM = "00" + "ab".repeat(31);   // leading zeros must survive
+    static final String EX = "67a1b2c3", IS = "67a06143", HM = "00" + "ab".repeat(31);   // leading zeros must survive
     static final DiscordAttachmentCodec CODEC = new DiscordAttachmentCodec();
 
     static String url(String host, String name, String query) {
@@ -82,9 +82,24 @@ class DiscordAttachmentCodecTest {
         assertTrue(typical.length() < 256, typical.length() + " chars");
     }
 
-    @Test void filenamesTooLongForThePayloadAreRejected() {
-        // ~87 chars of filename fit in the 200-char payload; Discord allows up to 100.
-        assertTrue(TokenCodec.encode(signed("a".repeat(80) + ".png")).isPresent());
-        assertTrue(TokenCodec.encode(signed("a".repeat(96) + ".png")).isEmpty());
+    @Test void longestFilenameFits() {
+        String token = token(signed("a".repeat(96) + ".png"));   // Discord's limit is 100
+        assertTrue(token.length() < 256, token.length() + " chars");
+        assertEquals(signed("a".repeat(96) + ".png"), rebuilt(signed("a".repeat(96) + ".png")));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"image.png", "unknown.png", "cat.PNG", "photo.jpeg", "archive.tar.gz", "noext"})
+    void defaultNamesAndExtensionsRoundTrip(String name) {
+        assertEquals(signed(name), rebuilt(signed(name)));
+    }
+
+    @Test void unusualLifetimeRoundTrips() {
+        String url = url("cdn.discordapp.com", "image.png", "ex=6aaaaaaa&is=" + IS + "&hm=" + HM + "&");
+        assertEquals(url, rebuilt(url));
+    }
+
+    @Test void defaultNameTokensAreShort() {
+        assertTrue(token(signed("image.png")).length() <= 76, token(signed("image.png")));
     }
 }

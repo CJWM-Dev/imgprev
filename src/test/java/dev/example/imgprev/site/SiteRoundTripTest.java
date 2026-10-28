@@ -37,6 +37,8 @@ class SiteRoundTripTest {
         https://media1.tenor.com/m/1S3s5iesWX0AAAAC/despierto-gato.gif | https://media.tenor.com/1S3s5iesWX0AAAAC/tenor.gif
         https://c.tenor.com/6n0lkxsBEQkAAAAM/tenor.gif | https://media.tenor.com/6n0lkxsBEQkAAAAC/tenor.gif
         https://media.tenor.com/6n0lkxsBEQkAAAAC/cat.gif | https://media.tenor.com/6n0lkxsBEQkAAAAC/tenor.gif
+        https://media1.tenor.com/m/vrO_dp6Wf9AAAAAd/cat.gif | https://media.tenor.com/vrO_dp6Wf9AAAAAC/tenor.gif
+        https://media.tenor.com/abc_defgh123/x.gif | https://media.tenor.com/abc_defgh123/tenor.gif
         # Discord emoji
         https://cdn.discordapp.com/emojis/1234567890123456789.gif | https://cdn.discordapp.com/emojis/1234567890123456789.gif?size=128
         https://cdn.discordapp.com/emojis/1234567890123456789.png?size=48 | https://cdn.discordapp.com/emojis/1234567890123456789.png?size=128
@@ -66,9 +68,9 @@ class SiteRoundTripTest {
 
     @Test void handoffExamples() {
         String imgur = token("https://i.imgur.com/AbC12xY.png");
-        assertTrue(imgur.startsWith("<~1ipAbC12xY") && imgur.endsWith("~>") && imgur.length() == 15, imgur);
+        assertTrue(imgur.startsWith("<~IpAbC12xY") && imgur.endsWith("~>") && imgur.length() == 14, imgur);
         String giphy = token("https://media4.giphy.com/media/kj8RVuDxh4x7W/giphy.gif");
-        assertTrue(giphy.startsWith("<~1gkj8RVuDxh4x7W") && giphy.length() == 20, giphy);
+        assertTrue(giphy.startsWith("<~Gkj8RVuDxh4x7W") && giphy.length() == 19, giphy);
     }
 
     @Test void downloadsStayOnSiteHosts() {

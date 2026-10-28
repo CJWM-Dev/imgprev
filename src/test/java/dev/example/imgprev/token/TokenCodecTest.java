@@ -31,6 +31,32 @@ class TokenCodecTest {
 
     @Test void unknownSiteCodeRejected() {
         assertTrue(TokenCodec.decode(craft("1qkj8RVuDxh4x7W")).isEmpty());
+        assertTrue(TokenCodec.decode(craft("Qkj8RVuDxh4x7W")).isEmpty());
+    }
+
+    @Test void headerCaseMustMatchVersion() {
+        assertTrue(TokenCodec.decode(craft("Gkj8RVuDxh4x7W")).isPresent());
+        assertTrue(TokenCodec.decode(craft("gkj8RVuDxh4x7W")).isEmpty());
+        assertTrue(TokenCodec.decode(craft("1Gkj8RVuDxh4x7W")).isEmpty());
+    }
+
+    @Test void v2PayloadsHaveNoDashes() {
+        assertTrue(TokenCodec.decode(craft("Gkj8RV-uDxh4x7W")).isEmpty());
+    }
+
+    /** Tokens from 0.1.x stay readable and share the cache entry of the same image's new token. */
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "<~1gkj8RVuDxh4x7W%s~>|https://i.giphy.com/media/kj8RVuDxh4x7W/giphy.gif",
+        "<~1t6n0lkxsBEQkAAAAC%s~>|https://media.tenor.com/6n0lkxsBEQkAAAAC/x.gif",
+        "<~1cpsa4ue3%s~>|https://files.catbox.moe/sa4ue3.png",
+    })
+    void v1TokensStillDecode(String row) {
+        String[] f = row.split("\\|");
+        String body = f[0].substring(2, f[0].indexOf('%'));
+        ResolvedMedia v1 = TokenCodec.decode(craft(body)).orElseThrow(() -> new AssertionError(body));
+        ResolvedMedia v2 = TokenCodec.decode(TokenCodec.encode(f[1]).orElseThrow()).orElseThrow();
+        assertEquals(v2.key(), v1.key());
     }
 
     @ParameterizedTest
@@ -61,7 +87,6 @@ class TokenCodecTest {
         "https://imgur.com/a/AbC12xY",
         "https://imgur.com/gallery/AbC12xY",
         "https://tenor.com/view/cat-gif-123456",
-        "https://media.tenor.com/abc_defgh123/x.gif",
         "https://media.tenor.com/1S3s5iesWX0AAAPo/x.mp4",
         "https://giphy.com/explore/cat",
         "https://cdn.discordapp.com/attachments/1100000000000000001/1300000000000000002/image.png",

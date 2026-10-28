@@ -41,7 +41,7 @@ public final class SendingClientGameTest implements FabricClientGameTest {
             // Klipy CDN addresses make keyless tokens that anyone can view: hover loads the animated WebP live.
             typeInChat(ctx, "/imglink " + KLIPY_CDN);
             String klipy = clipboard(ctx);
-            assertTrue(klipy.startsWith("<~1y"), "keyless Klipy token: " + klipy);
+            assertTrue(klipy.startsWith("<~Y"), "keyless Klipy token: " + klipy);
             ctx.setScreen(() -> new ChatScreen("", false));
             hover(ctx, "klipy: ", klipy, "probe-klipy-cdn");
             ImageCache.Entry klipyEntry = awaitLoaded(ctx, klipy);
@@ -57,7 +57,7 @@ public final class SendingClientGameTest implements FabricClientGameTest {
 
             // Postimages page links are looked up live and become tokens for the full-size image.
             typeInChat(ctx, "/imglink " + POSTIMAGES_PAGE);
-            ctx.waitFor(mc -> mc.keyboardHandler.getClipboard().startsWith("<~1p"));
+            ctx.waitFor(mc -> mc.keyboardHandler.getClipboard().startsWith("<~P"));
             String postimages = clipboard(ctx);
             assertEquals(TokenCodec.encode("https://i.postimg.cc/8zXVwKmm/01.png").orElseThrow(), postimages, "page's og:image");
             ctx.setScreen(() -> new ChatScreen("", false));

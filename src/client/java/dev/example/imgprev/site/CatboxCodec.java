@@ -1,5 +1,6 @@
 package dev.example.imgprev.site;
 
+import dev.example.imgprev.token.Mixed;
 import java.net.URI;
 import java.util.Optional;
 import java.util.Set;
@@ -14,6 +15,7 @@ import java.util.regex.Pattern;
 final class CatboxCodec implements SiteCodec {
     static final Pattern PATH = Pattern.compile("^/([a-z0-9]{6})\\.(png|jpg|jpeg|gif|webp)$");
     static final Pattern P = Pattern.compile("[pjegw][a-z0-9]{6}");
+    static final String EXT = "pjegw", ID_CHARS = "0123456789abcdefghijklmnopqrstuvwxyz";
     private static final Set<String> HOSTS = Set.of("files.catbox.moe");
 
     public char code() { return 'c'; }
@@ -28,6 +30,19 @@ final class CatboxCodec implements SiteCodec {
         if (!m.matches()) return Optional.empty();
         char e = switch (m.group(2)) { case "png" -> 'p'; case "jpg" -> 'j'; case "jpeg" -> 'e'; case "gif" -> 'g'; default -> 'w'; };
         return Optional.of(e + m.group(1));
+    }
+
+    /** The six base-36 id characters and ext code in one number. */
+    @Override public String compact(String p) {
+        return new Mixed().putString(p.substring(1), ID_CHARS, 6, 6).put(EXT.indexOf(p.charAt(0)), EXT.length()).toBase62();
+    }
+
+    @Override public Optional<String> expand(String s) {
+        return Mixed.fromBase62(s).flatMap(m -> {
+            char ext = EXT.charAt(m.take(EXT.length()));
+            String id = m.takeString(ID_CHARS, 6, 6);
+            return m.isEmpty() ? Optional.of(ext + id) : Optional.empty();
+        });
     }
 
     public CompletableFuture<URI> mediaUri(String p) {

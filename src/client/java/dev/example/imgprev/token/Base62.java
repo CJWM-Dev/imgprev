@@ -3,7 +3,7 @@ package dev.example.imgprev.token;
 import java.math.BigInteger;
 
 public final class Base62 {
-    static final String A = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    public static final String A ="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     private static final BigInteger B = BigInteger.valueOf(62);
 
     private Base62() {}

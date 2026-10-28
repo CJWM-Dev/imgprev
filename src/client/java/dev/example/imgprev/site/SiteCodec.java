@@ -17,4 +17,8 @@ public interface SiteCodec {
     CompletableFuture<URI> mediaUri(String payload);    // constant host template
     Set<String> allowedDownloadHosts();
     default OptionalLong expiresAtEpochSec(String payload) { return OptionalLong.empty(); }
+    /** Token v2 form of a valid payload: Base62 only, as short as the site allows. The default suits Base62 payloads. */
+    default String compact(String payload) { return payload; }
+    /** Inverse of {@link #compact}; empty when nothing compacts to {@code compact}. The result is checked against {@link #payloadPattern}. */
+    default Optional<String> expand(String compact) { return Optional.of(compact); }
 }

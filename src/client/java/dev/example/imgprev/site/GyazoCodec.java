@@ -1,6 +1,7 @@
 package dev.example.imgprev.site;
 
 import dev.example.imgprev.token.Base62;
+import dev.example.imgprev.token.Mixed;
 import java.math.BigInteger;
 import java.net.URI;
 import java.util.Locale;
@@ -14,6 +15,7 @@ import java.util.regex.Pattern;
 final class GyazoCodec implements SiteCodec {
     static final Pattern PATH = Pattern.compile("^/([0-9a-f]{32})(?:\\.(png|jpe?g|gif))?$", Pattern.CASE_INSENSITIVE);
     static final Pattern P = Pattern.compile("[pjg][0-9A-Za-z]{1,22}");
+    static final String EXT = "pjg";
     private static final Set<String> HOSTS = Set.of("gyazo.com", "i.gyazo.com");
     private static final Set<String> DOWNLOAD = Set.of("i.gyazo.com");
 
@@ -29,6 +31,19 @@ final class GyazoCodec implements SiteCodec {
         String ext = m.group(2) == null ? "png" : m.group(2).toLowerCase(Locale.ROOT);
         char e = ext.startsWith("jp") ? 'j' : ext.equals("gif") ? 'g' : 'p';
         return Optional.of(e + Base62.encode(new BigInteger(m.group(1), 16)));
+    }
+
+    /** The 128-bit id and ext code in one number. */
+    @Override public String compact(String p) {
+        return new Mixed().putBits(Base62.decode(p.substring(1)), 128).put(EXT.indexOf(p.charAt(0)), EXT.length()).toBase62();
+    }
+
+    @Override public Optional<String> expand(String s) {
+        return Mixed.fromBase62(s).flatMap(m -> {
+            char ext = EXT.charAt(m.take(EXT.length()));
+            String id = Base62.encode(m.takeBits(128));
+            return m.isEmpty() ? Optional.of(ext + id) : Optional.empty();
+        });
     }
 
     public CompletableFuture<URI> mediaUri(String p) {

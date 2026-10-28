@@ -6,7 +6,7 @@ Hover previews for image links in Minecraft chat, for Fabric 26.2.
 
 ImgPrev turns image links into short tokens you can send without the link text. Anyone with ImgPrev sees a small `[🖼 GIF]` label, and hovering over it shows the image or animated GIF. Players without the mod see the token as plain text, so nothing breaks for them.
 
-Tokens look like `<~1gXJtM2nNFCzT3etvzOB~>`. They contain no links, so chat filters and link-blocking won't touch them.
+Tokens look like `<~GXJtM2nNFCzT3etvzOBK~>`. They contain no links, so chat filters and link-blocking won't touch them. Since 0.3.0, tokens are shorter, and players need 0.3.0 or newer to preview them. Tokens from older versions still work.
 
 ## Features
 
