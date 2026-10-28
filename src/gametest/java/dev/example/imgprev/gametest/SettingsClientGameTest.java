@@ -1,13 +1,15 @@
 package dev.example.imgprev.gametest;
 
-import static dev.example.imgprev.gametest.ChatPreviewClientGameTest.GIF;
-import static dev.example.imgprev.gametest.ChatPreviewClientGameTest.IMG;
-import static dev.example.imgprev.gametest.ChatPreviewClientGameTest.cacheEntry;
-import static dev.example.imgprev.gametest.ChatPreviewClientGameTest.hover;
+import static dev.example.imgprev.gametest.GameTests.GIF;
+import static dev.example.imgprev.gametest.GameTests.IMG;
 import static dev.example.imgprev.gametest.GameTests.assertEquals;
+import static dev.example.imgprev.gametest.GameTests.assertNull;
 import static dev.example.imgprev.gametest.GameTests.assertTrue;
+import static dev.example.imgprev.gametest.GameTests.cacheEntry;
+import static dev.example.imgprev.gametest.GameTests.hover;
 import static dev.example.imgprev.gametest.GameTests.lastChat;
 import static dev.example.imgprev.gametest.GameTests.lastChatLine;
+import static dev.example.imgprev.gametest.GameTests.system;
 import static dev.example.imgprev.gametest.GameTests.typeInChat;
 
 import dev.example.imgprev.ImgPrevClient;
@@ -22,7 +24,6 @@ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.client.gui.screens.ChatScreen;
-import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
 import org.lwjgl.glfw.GLFW;
@@ -33,7 +34,7 @@ public final class SettingsClientGameTest implements FabricClientGameTest {
     static final String OLD_KLIPY = "<~1kred-moon-flyinga~>";
 
     @Override public void runTest(ClientGameTestContext ctx) {
-        try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
+        try (TestSingleplayerContext sp = ctx.worldBuilder().create(); GameTests.Restore config = GameTests.keepConfig(ctx)) {
             sp.getConnection().waitForChunksRender();
 
             typeInChat(ctx, "/imgprev");
@@ -53,7 +54,7 @@ public final class SettingsClientGameTest implements FabricClientGameTest {
             assertEquals("giphy previews off", lastChat(ctx), "site feedback");
             system(ctx, GIF + " " + IMG);
             assertEquals(GIF + " [⧈ Image]", lastChat(ctx), "only giphy left as text");
-            assertEquals(false, ImgPrevConfig.load().sites.get("g"), "giphy off saved to disk");
+            assertEquals(Boolean.FALSE, ImgPrevConfig.load().sites.get("g"), "giphy off saved to disk");
             typeInChat(ctx, "/imgprev site giphy on");
 
             // Old Klipy slug tokens needed every viewer's own API key; they're plain text now.
@@ -66,7 +67,7 @@ public final class SettingsClientGameTest implements FabricClientGameTest {
             ctx.setScreen(() -> new ChatScreen("", false));
             hover(ctx, "shift: ", IMG, "probe-shift");
             ctx.waitTicks(3);
-            assertTrue(cacheEntry(ctx, IMG) == null, "no download without Shift");
+            assertNull(cacheEntry(ctx, IMG), "no download without Shift");
             ctx.takeScreenshot("hover-needs-shift");
             ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
             typeInChat(ctx, "/imgprev shift off");
@@ -132,7 +133,4 @@ public final class SettingsClientGameTest implements FabricClientGameTest {
         });
     }
 
-    static void system(ClientGameTestContext ctx, String text) {
-        ctx.runOnClient(mc -> mc.gui.hud.getChat().addServerSystemMessage(Component.literal(text)));
-    }
 }

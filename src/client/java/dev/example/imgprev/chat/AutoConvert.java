@@ -30,9 +30,15 @@ public final class AutoConvert {
 
     static boolean enabled() { return ImgPrevClient.CONFIG.autoConvertLinks; }
 
-    static boolean appliesTo(String command) {
-        return enabled() && ImgPrevClient.CONFIG.autoConvertCommands.contains(command.split(" ", 2)[0].toLowerCase(Locale.ROOT));
+    static boolean appliesTo(String command) { return enabled() && appliesTo(command, ImgPrevClient.CONFIG.autoConvertCommands); }
+
+    /** Whether {@code command} (without its slash) starts with one of {@code chatCommands}. */
+    static boolean appliesTo(String command, List<String> chatCommands) {
+        return chatCommands.contains(command.split(" ", 2)[0].toLowerCase(Locale.ROOT));
     }
+
+    /** What the server counts: a command's slash is part of its length. */
+    static int sentLength(String converted, boolean command) { return converted.length() + (command ? 1 : 0); }
 
     /** True to send now (MODIFY_* then converts); false holds the message back. */
     private static boolean allow(String text, boolean command) {
@@ -43,6 +49,7 @@ public final class AutoConvert {
             return false;
         }
         Minecraft mc = Minecraft.getInstance();
+        mc.gui.hud.getChat().addClientSystemMessage(Component.literal("Looking up the image before sending…").withStyle(ChatFormatting.GRAY));
         LinkConverter.convertAll(text).whenComplete((out, err) -> mc.execute(() -> {
             if (err != null) refuse(text, command, LinkConverter.describe(err));
             else if (fits(out, text, command) && mc.player != null) {
@@ -55,7 +62,7 @@ public final class AutoConvert {
     }
 
     private static boolean fits(String converted, String original, boolean command) {
-        int length = converted.length() + (command ? 1 : 0);
+        int length = sentLength(converted, command);
         if (length <= MAX_LENGTH) return true;
         refuse(original, command, "too long once its links are converted (" + length + "/" + MAX_LENGTH + ")");
         return false;

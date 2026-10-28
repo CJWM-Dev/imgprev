@@ -6,7 +6,7 @@ Source of truth for names/descriptors used by mixins and render code. Checked 20
 - Loom 1.17.21 `genSources` (Vineflower) output
 - `fabric-api-0.161.0+26.2.jar` nested module jars via `javap`
 
-Legend: **OK** = handoff skeleton is correct as written. **CHANGED** = skeleton must be updated.
+Legend: the "handoff" is the original design brief, with code skeletons, that ImgPrev was built from; it isn't in this repo. **OK** = the skeleton was right as written. **CHANGED** = the code differs from it, as described.
 
 ## Toolchain
 
@@ -205,3 +205,10 @@ The ASCII left over (`- _ ! ? , ; = + ( ) |`, 73 characters with Base62) would s
 
 - `.github/workflows/build.yml`: after the build job passes on a push to `main`, the release job reads `mod_version` from gradle.properties and, if there's no `v{version}` release yet, runs `gh release create v{version} build/libs/imgprev-{version}.jar --title "ImgPrev {version}" --target $GITHUB_SHA --generate-notes` with the jar the build job uploaded. Same scheme as the author's Bazaar Assist repo: bumping the version is what publishes a release; other pushes leave releases alone.
 - Action versions current on 2026-10-27: `actions/checkout@v7`, `actions/setup-java@v6`, `gradle/actions@v6`, `actions/upload-artifact@v7`, `actions/download-artifact@v8` (artifacts v4+ share one backend, so v7 uploads download with v8).
+
+## Downloads and decoding (checked 2026-10-28)
+
+- **Body timeouts.** `HttpRequest.timeout` only covers the wait for response headers. With the body read from an `InputStream`, a server that sent headers and some bytes and then stalled kept the download thread blocked past 30 s (tested against a local server; it never returns). Bodies are now read through a capped `BodySubscriber`: a stall of 10 s, or 120 s in all, ends the download as "Timed out".
+- **Connect times to the CDNs vary a lot.** On 2026-10-28 from GB, TCP connect to `i.postimg.cc` took 0.04 s to 20 s across tries, so the 5 s connect timeout sometimes fails a preview (and the live Postimages check in the game tests, on `main` as well). `./gradlew runClientGameTest -Poffline` skips the checks that need the live sites.
+- **Subsampled stills.** ImageIO source subsampling, leaving at least 3× box filtering: a 3840×1725 photo into a 512 px box decodes in 74 ms instead of 160 ms with 18 MB allocated instead of 66 MB, and matches a full decode at 39 dB PSNR. Leaving 2× is 34 dB (fine detail starts to go); pure subsampling aliases (25 dB on the photo, 11 dB on a zone plate).
+- **Copying into `NativeImage`.** `setPixel` per pixel and a bulk copy through `getPointer()` both take about 4 ms per 2048×2048 frame, so the bounds-checked `setPixel` stays. Frames are copied as they're decoded, so the heap no longer holds every frame alongside its native copy (64 MB for 16 frames of 1000×1000).

@@ -1,6 +1,14 @@
 package dev.example.imgprev.gametest;
 
+import dev.example.imgprev.ImgPrevClient;
+import dev.example.imgprev.config.ImgPrevConfig;
+import dev.example.imgprev.image.ImageCache;
+import dev.example.imgprev.token.TokenCodec;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
@@ -13,11 +21,32 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.chat.GuiMessage;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
+import org.jspecify.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
-/** Shared helpers for the client game tests. */
+/** Shared helpers and tokens for the client game tests. */
 final class GameTests {
     private GameTests() {}
+
+    static final String GIF = TokenCodec.encode("https://media.giphy.com/media/XJtM2nNFCzT3etvzOB/giphy.gif").orElseThrow();
+    static final String IMG = TokenCodec.encode("https://i.imgur.com/AbC12xY.png").orElseThrow();
+
+    /** False with {@code ./gradlew runClientGameTest -Poffline}: skip the checks that download from the live sites. */
+    static boolean live() { return !Boolean.getBoolean("imgprev.gametest.offline"); }
+
+    /** Puts config/imgprev.json, and the settings loaded from it, back as they were; for try-with-resources. */
+    interface Restore extends AutoCloseable { @Override void close(); }
+
+    static Restore keepConfig(ClientGameTestContext ctx) {
+        Path file = ImgPrevConfig.path();
+        String saved;
+        try { saved = Files.readString(file); } catch (IOException e) { throw new UncheckedIOException(e); }
+        return () -> ctx.runOnClient(mc -> {
+            try { Files.writeString(file, saved); } catch (IOException e) { throw new UncheckedIOException(e); }
+            ImgPrevClient.CONFIG.reload();
+            ImgPrevClient.CACHE.clear();
+        });
+    }
 
     /** Opens chat, types {@code text}, presses Enter, and waits until that chat screen has gone. */
     static void typeInChat(ClientGameTestContext ctx, String text) {
@@ -45,6 +74,36 @@ final class GameTests {
 
     static String chatInput(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> ((EditBox) read(ChatScreen.class, "input", mc.gui.screen())).getValue());
+    }
+
+    /** Posts a server system message (how Hypixel sends most chat). */
+    static void system(ClientGameTestContext ctx, String text) {
+        ctx.runOnClient(mc -> mc.gui.hud.getChat().addServerSystemMessage(Component.literal(text)));
+    }
+
+    /** Posts {@code prefix + token} with the token tagged by {@code probe}, then puts the cursor on its label. */
+    static void hover(ClientGameTestContext ctx, String prefix, String token, String probe) {
+        ctx.runOnClient(mc -> mc.gui.hud.getChat().addServerSystemMessage(
+            Component.literal(prefix).append(Component.literal(token).setStyle(Style.EMPTY.withInsertion(probe)))));
+        ctx.waitTick();
+        hoverChatInsertion(ctx, probe);
+    }
+
+    static ImageCache.Entry awaitLoaded(ClientGameTestContext ctx, String token) {
+        String key = TokenCodec.decode(token).orElseThrow().key();
+        try {
+            ctx.waitFor(mc -> { ImageCache.Entry e = ImgPrevClient.CACHE.peek(key); return e != null && e.state() != ImageCache.State.LOADING; }, 600);
+        } catch (AssertionError timeout) {
+            ctx.takeScreenshot("timeout-" + key.charAt(0));
+            ImageCache.Entry e = cacheEntry(ctx, token);
+            throw new AssertionError("preview " + key + " never finished: " + (e == null ? "no cache entry (hover missed?)" : e.state()), timeout);
+        }
+        return ctx.computeOnClient(mc -> ImgPrevClient.CACHE.peek(key));
+    }
+
+    static ImageCache.@Nullable Entry cacheEntry(ClientGameTestContext ctx, String token) {
+        String key = TokenCodec.decode(token).orElseThrow().key();
+        return ctx.computeOnClient(mc -> ImgPrevClient.CACHE.peek(key));
     }
 
     /**
@@ -93,5 +152,9 @@ final class GameTests {
 
     static void assertTrue(boolean condition, String what) {
         if (!condition) throw new AssertionError(what);
+    }
+
+    static void assertNull(@Nullable Object value, String what) {
+        if (value != null) throw new AssertionError(what + ": expected nothing but was <" + value + ">");
     }
 }

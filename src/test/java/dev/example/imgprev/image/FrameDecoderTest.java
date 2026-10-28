@@ -26,7 +26,7 @@ class FrameDecoderTest {
 
     static BufferedImage solid(int w, int h, int argb) {
         BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
-        for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) img.setRGB(x, y, argb);
+        Arrays.fill(((java.awt.image.DataBufferInt) img.getRaster().getDataBuffer()).getData(), argb);   // TYPE_INT_ARGB stores ARGB as is
         return img;
     }
 
@@ -161,6 +161,23 @@ class FrameDecoderTest {
         assertEquals(300, f.h());
         assertEquals(40, f.count());
         assertEquals(BLUE, px(f, 39, 299, 299));
+    }
+
+    @Test void truncatedAnimationsKeepTheFramesThatDecoded() throws IOException {
+        byte[] full = gif(new Frame(solid(8, 8, RED), 0, 0, 10, "none"), new Frame(solid(8, 8, BLUE), 0, 0, 10, "none"),
+            new Frame(solid(8, 8, GREEN), 0, 0, 10, "none"));
+        byte[] cut = Arrays.copyOf(full, full.length - 12);   // partway through the last frame
+        FrameDecoder.Frames<int[]> f = FrameDecoder.decode(cut, 256, 256);
+        assertTrue(f.count() >= 2 && f.count() <= 3, "frames: " + f.count());
+        assertEquals(RED, px(f, 0, 0, 0));
+        assertEquals(BLUE, px(f, 1, 0, 0));
+    }
+
+    @Test void largeCanvasesCompositeFewerFrames() {
+        assertEquals(500, FrameDecoder.sourceFrames(500, 480, 270), "a typical GIF keeps them all");
+        assertEquals(23, FrameDecoder.sourceFrames(500, 4096, 4096), "400M canvas pixels / 16.7M per frame");
+        assertEquals(1, FrameDecoder.sourceFrames(1, 4096, 4096));
+        assertEquals(23, FrameDecoder.sourceFrames(-1, 4096, 4096), "unknown length: read up to the budget");
     }
 
     @Test void bigLongAnimationsShrinkToThePixelBudget() {

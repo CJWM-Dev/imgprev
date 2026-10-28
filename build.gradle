@@ -15,6 +15,10 @@ fabricApi {
         enableGameTests = false
     }
 }
+// `./gradlew runClientGameTest -Poffline` skips the checks that need the live image sites.
+if (providers.gradleProperty("offline").isPresent()) {
+    loom.runs.matching { it.name == "clientGameTest" }.configureEach { vmArg "-Dimgprev.gametest.offline=true" }
+}
 
 repositories {
     maven { name = "TerraformersMC"; url = "https://maven.terraformersmc.com/releases/" }
@@ -40,9 +44,9 @@ dependencies {
         localRuntime(it) { transitive = false }
     }
     // Cloth's colour field API names its Color class; Cloth Config ships this jar inside itself.
-    compileOnly("me.shedaniel.cloth:basic-math:0.6.1") { transitive = false }
+    compileOnly("me.shedaniel.cloth:basic-math:${cloth_basic_math_version}") { transitive = false }
 
-    testImplementation "org.junit.jupiter:junit-jupiter:5.11.0"
+    testImplementation "org.junit.jupiter:junit-jupiter:${junit_version}"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"   // Gradle 9 no longer supplies it; version from the JUnit BOM
 }
 

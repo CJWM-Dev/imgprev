@@ -60,7 +60,7 @@ These are adjustable in the settings screen:
 ./gradlew build
 ```
 
-The jar is written to `build/libs/`. Unit tests run as part of the build. The in-game tests need a display and the live sites, so run them separately with `./gradlew runClientGameTest`.
+The jar is written to `build/libs/`. Unit tests run as part of the build. The in-game tests need a display and the live sites, so run them separately with `./gradlew runClientGameTest`. Add `-Poffline` to skip the checks that download from the image sites.
 
 ## Dependencies
 

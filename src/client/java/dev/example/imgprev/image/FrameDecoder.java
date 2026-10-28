@@ -136,8 +136,7 @@ public final class FrameDecoder {
     static <T> Frames<T> animate(ImageReader reader, int cw, int ch, int total, int maxW, int maxH, FrameSink<T> sink,
                                  Placements placements) throws IOException {
         checkSize(cw, ch);
-        int budget = (int) Math.max(1, Math.min(Integer.MAX_VALUE, MAX_COMPOSITE_PIXELS / ((long) cw * ch)));
-        int sourceFrames = total > 0 ? Math.min(total, budget) : budget;
+        int sourceFrames = sourceFrames(total, cw, ch);
         int keep = Math.min(sourceFrames, MAX_FRAMES);
         int[] fitted = fit(cw, ch, maxW, maxH);
         int[] out = withinBudget(fitted[0], fitted[1], keep);
@@ -178,6 +177,12 @@ public final class FrameDecoder {
         }
 
         return new Frames<>(out[0], out[1], cw, ch, frames, Arrays.copyOf(delays, frames.size()));
+    }
+
+    /** Source frames composited: all of them, unless a large canvas makes that more than {@link #MAX_COMPOSITE_PIXELS}. */
+    static int sourceFrames(int total, int cw, int ch) {
+        int budget = (int) Math.max(1, Math.min(Integer.MAX_VALUE, MAX_COMPOSITE_PIXELS / ((long) cw * ch)));
+        return total > 0 ? Math.min(total, budget) : budget;   // total <= 0: unknown, read until it stops
     }
 
     /** GIF transparency is 1-bit, so blending reduces to copying opaque pixels. */

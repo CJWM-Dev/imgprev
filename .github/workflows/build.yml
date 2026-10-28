@@ -1,10 +1,14 @@
-# Builds the mod and runs the unit tests on every push and pull request; the jar is attached to each run.
+# Builds the mod and runs the unit tests for pushes to main and for pull requests (once each, not twice for a
+# PR branch); the jar is attached to each run.
 # A push to main whose mod_version (gradle.properties) hasn't been released yet also publishes a GitHub release,
 # so bumping the version is what makes a release.
 # (The in-game tests need a display and the live sites, so they stay local: ./gradlew runClientGameTest.)
 
 name: build
-on: [pull_request, push]
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 permissions:
   contents: read
@@ -24,8 +28,6 @@ jobs:
           distribution: 'temurin'
       - name: setup gradle (caches Minecraft and dependencies between runs)
         uses: gradle/actions/setup-gradle@v6
-      - name: make gradle wrapper executable
-        run: chmod +x ./gradlew
       - name: build and run unit tests
         run: ./gradlew build
       - name: capture build artifacts

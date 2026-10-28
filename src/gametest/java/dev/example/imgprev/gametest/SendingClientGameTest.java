@@ -1,12 +1,13 @@
 package dev.example.imgprev.gametest;
 
-import static dev.example.imgprev.gametest.ChatPreviewClientGameTest.awaitLoaded;
-import static dev.example.imgprev.gametest.ChatPreviewClientGameTest.hover;
 import static dev.example.imgprev.gametest.GameTests.assertEquals;
 import static dev.example.imgprev.gametest.GameTests.assertTrue;
+import static dev.example.imgprev.gametest.GameTests.awaitLoaded;
 import static dev.example.imgprev.gametest.GameTests.chatInput;
 import static dev.example.imgprev.gametest.GameTests.clipboard;
+import static dev.example.imgprev.gametest.GameTests.hover;
 import static dev.example.imgprev.gametest.GameTests.lastChat;
+import static dev.example.imgprev.gametest.GameTests.live;
 import static dev.example.imgprev.gametest.GameTests.setClipboard;
 import static dev.example.imgprev.gametest.GameTests.typeInChat;
 
@@ -30,7 +31,7 @@ public final class SendingClientGameTest implements FabricClientGameTest {
 
     @Override public void runTest(ClientGameTestContext ctx) {
         String original = clipboard(ctx);   // the test uses the OS clipboard; put text back afterwards
-        try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
+        try (TestSingleplayerContext sp = ctx.worldBuilder().create(); GameTests.Restore config = GameTests.keepConfig(ctx)) {
             sp.getConnection().waitForChunksRender();
             setClipboard(ctx, "untouched");
 
@@ -38,35 +39,39 @@ public final class SendingClientGameTest implements FabricClientGameTest {
             typeInChat(ctx, "/imglink " + GIPHY);
             assertEquals(TokenCodec.encode(GIPHY).orElseThrow(), clipboard(ctx), "token from typed link");
 
-            // Klipy CDN addresses make keyless tokens that anyone can view: hover loads the animated WebP live.
+            // Klipy CDN addresses make keyless tokens that anyone can view.
             typeInChat(ctx, "/imglink " + KLIPY_CDN);
             String klipy = clipboard(ctx);
             assertTrue(klipy.startsWith("<~Y"), "keyless Klipy token: " + klipy);
-            ctx.setScreen(() -> new ChatScreen("", false));
-            hover(ctx, "klipy: ", klipy, "probe-klipy-cdn");
-            ImageCache.Entry klipyEntry = awaitLoaded(ctx, klipy);
-            assertEquals(ImageCache.State.READY, klipyEntry.state(), "klipy webp state (error: " + klipyEntry.error() + ")");
-            assertTrue(klipyEntry.texture().frameCount() > 1, "klipy webp is animated");
-            ctx.waitTicks(2);
-            ctx.takeScreenshot("hover-klipy-webp");
-            ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+            if (live()) {   // hover loads the animated WebP live
+                ctx.setScreen(() -> new ChatScreen("", false));
+                hover(ctx, "klipy: ", klipy, "probe-klipy-cdn");
+                ImageCache.Entry klipyEntry = awaitLoaded(ctx, klipy);
+                assertEquals(ImageCache.State.READY, klipyEntry.state(), "klipy webp state (error: " + klipyEntry.error() + ")");
+                assertTrue(klipyEntry.texture().frameCount() > 1, "klipy webp is animated");
+                ctx.waitTicks(2);
+                ctx.takeScreenshot("hover-klipy-webp");
+                ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+            }
 
             // Klipy page links can't be converted; say how to get a usable link.
             typeInChat(ctx, "/imglink " + KLIPY_PAGE);
             assertEquals(LinkConverter.KLIPY_PAGE_LINK, lastChat(ctx), "klipy page link");
 
-            // Postimages page links are looked up live and become tokens for the full-size image.
-            typeInChat(ctx, "/imglink " + POSTIMAGES_PAGE);
-            ctx.waitFor(mc -> mc.keyboardHandler.getClipboard().startsWith("<~P"));
-            String postimages = clipboard(ctx);
-            assertEquals(TokenCodec.encode("https://i.postimg.cc/8zXVwKmm/01.png").orElseThrow(), postimages, "page's og:image");
-            ctx.setScreen(() -> new ChatScreen("", false));
-            hover(ctx, "postimages: ", postimages, "probe-postimages");
-            ImageCache.Entry postimagesEntry = awaitLoaded(ctx, postimages);
-            assertEquals(ImageCache.State.READY, postimagesEntry.state(), "postimages state (error: " + postimagesEntry.error() + ")");
-            ctx.waitTicks(2);
-            ctx.takeScreenshot("hover-postimages");
-            ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+            if (live()) {
+                // Postimages page links are looked up live and become tokens for the full-size image.
+                typeInChat(ctx, "/imglink " + POSTIMAGES_PAGE);
+                ctx.waitFor(mc -> mc.keyboardHandler.getClipboard().startsWith("<~P"));
+                String postimages = clipboard(ctx);
+                assertEquals(TokenCodec.encode("https://i.postimg.cc/8zXVwKmm/01.png").orElseThrow(), postimages, "page's og:image");
+                ctx.setScreen(() -> new ChatScreen("", false));
+                hover(ctx, "postimages: ", postimages, "probe-postimages");
+                ImageCache.Entry postimagesEntry = awaitLoaded(ctx, postimages);
+                assertEquals(ImageCache.State.READY, postimagesEntry.state(), "postimages state (error: " + postimagesEntry.error() + ")");
+                ctx.waitTicks(2);
+                ctx.takeScreenshot("hover-postimages");
+                ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+            }
 
             // Converting links as chat is sent (the server echoes what it received).
             typeInChat(ctx, "/imgprev autoconvert on");
@@ -79,6 +84,14 @@ public final class SendingClientGameTest implements FabricClientGameTest {
             typeInChat(ctx, "/msg Player0 see " + GIPHY);
             ctx.waitFor(mc -> lastChat(mc).contains("whisper"));
             assertTrue(lastChat(ctx).endsWith(": see [▶ GIF]"), "converted command: " + lastChat(ctx));
+
+            if (live()) {
+                // A page link holds the message back, says so, and sends it once looked up.
+                typeInChat(ctx, "page " + POSTIMAGES_PAGE);
+                assertEquals("Looking up the image before sending…", lastChat(ctx), "lookup notice");
+                ctx.waitFor(mc -> lastChat(mc).startsWith("<Player0> page"));
+                assertEquals("<Player0> page [⧈ Image]", lastChat(ctx), "sent once converted");
+            }
 
             // A message that can't be converted isn't sent; it goes back in the chat box.
             typeInChat(ctx, "hey " + KLIPY_PAGE);
