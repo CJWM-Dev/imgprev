@@ -8,12 +8,14 @@ import java.net.URI;
 import java.net.http.HttpTimeoutException;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.LongSupplier;
 import javax.imageio.IIOException;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Util;
@@ -21,12 +23,18 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Hover-driven image cache bounded by a byte budget (LRU). Render thread only: downloads and decodes run on
- * background pools and post their results back with {@code Minecraft#execute}.
+ * background pools and post their results back to the render thread.
  */
 public final class ImageCache {
     public enum State { LOADING, READY, FAILED }
 
     static final long RETRY_MS = 60_000;
+    /** Loads (download + decode) running at once. More hovers wait for a slot, so sweeping the cursor over chat can't queue them all. */
+    static final int MAX_LOADING = 4;
+    /** Entries kept without a texture (failed links) before the oldest are forgotten. */
+    static final int MAX_EMPTY = 256;
+    /** A preview is loaded again at the bigger size once its pixel box has grown this much (GUI scale, window size). */
+    static final double UPGRADE_RATIO = 1.25;
     static final ExecutorService DECODE = Executors.newSingleThreadExecutor(SafeHttp.daemon("imgprev-decode"));
 
     public static final class Entry {
@@ -34,33 +42,76 @@ public final class ImageCache {
         private @Nullable AnimatedTexture texture;
         private String error = "";
         private long failedAt;
+        /** Source size, and the pixel box the texture was decoded to fit. */
+        private int srcW, srcH, pxW, pxH;
+        private boolean upgrading;
 
         public State state() { return state; }
         public @Nullable AnimatedTexture texture() { return texture; }
         public String error() { return error; }
     }
 
-    private record Decoded(FrameDecoder.Frames frames, NativeImage[] images) {}
+    /** Handed out while every load slot is busy; the next frame's hover asks again. */
+    static final Entry WAITING = new Entry();
 
-    private final LinkedHashMap<String, Entry> entries = new LinkedHashMap<>(16, 0.75f, true);   // access order = LRU
+    /** One load's result: frame sizes and timings, with the pixels already in native memory. */
+    public record Decoded(int w, int h, int srcW, int srcH, int[] delaysMs, NativeImage[] images) {}
+
+    @FunctionalInterface
+    public interface Loader { CompletableFuture<Decoded> load(ResolvedMedia m, int pxW, int pxH); }
+
+    private final Map<String, Entry> entries = new LinkedHashMap<>();   // least recently hovered first
+    private final Loader loader;
+    private final Executor renderThread;
+    private final LongSupplier clock, budget;
     private long usedBytes;
+    private int loading;
+
+    public ImageCache() {
+        this(ImageCache::download, r -> Minecraft.getInstance().execute(r), Util::getMillis, () -> ImgPrevClient.CONFIG.cacheBudgetBytes());
+    }
+
+    ImageCache(Loader loader, Executor renderThread, LongSupplier clock, LongSupplier budget) {
+        this.loader = loader;
+        this.renderThread = renderThread;
+        this.clock = clock;
+        this.budget = budget;
+    }
 
     /**
      * Called every frame while a preview is hovered. FAILED entries are kept so dead links aren't refetched each frame.
      * A new load fits the image in {@code boxW×boxH} GUI units, decoded at {@code guiScale} pixels per unit.
      */
     public Entry getOrStart(ResolvedMedia m, int boxW, int boxH, int guiScale) {
-        Entry e = entries.get(m.key());
-        if (e != null && !(e.state == State.FAILED && Util.getMillis() - e.failedAt > RETRY_MS)) return e;
+        String key = m.key();
+        int pxW = boxW * guiScale, pxH = boxH * guiScale;
+        Entry e = entries.remove(key);
+        if (e != null) {
+            entries.put(key, e);   // now the most recently hovered
+            boolean retry = e.state == State.FAILED && clock.getAsLong() - e.failedAt > RETRY_MS;
+            if (!retry) {
+                if (wantsUpgrade(e, pxW, pxH) && loading < MAX_LOADING) {
+                    e.upgrading = true;
+                    start(m, new Entry(), e, boxW, boxH, pxW, pxH);
+                }
+                return e;
+            }
+            if (loading >= MAX_LOADING) return e;
+        } else if (loading >= MAX_LOADING) {
+            return WAITING;
+        }
         Entry fresh = new Entry();
-        entries.put(m.key(), fresh);
-        load(m, fresh, boxW, boxH, guiScale);
+        entries.put(key, fresh);
+        start(m, fresh, null, boxW, boxH, pxW, pxH);
+        trimEmpty();
         return fresh;
     }
 
+    /** Read-only: unlike {@link #getOrStart}, doesn't count as a hover. */
     public @Nullable Entry peek(String key) { return entries.get(key); }
     public int size() { return entries.size(); }
     public long usedBytes() { return usedBytes; }
+    int loading() { return loading; }
 
     public void clear() {
         for (Entry e : entries.values()) if (e.texture != null) e.texture.release();
@@ -68,50 +119,68 @@ public final class ImageCache {
         usedBytes = 0;
     }
 
-    private void load(ResolvedMedia m, Entry e, int boxW, int boxH, int guiScale) {
-        int maxBytes = ImgPrevClient.CONFIG.maxDownloadBytes();
-        CompletableFuture<URI> uri;
-        try { uri = m.codec().mediaUri(m.payload()); } catch (RuntimeException ex) { uri = CompletableFuture.failedFuture(ex); }
-        uri.thenCompose(u -> SafeHttp.get(u, m.codec().allowedDownloadHosts(), maxBytes, "image/"))
-            .thenApplyAsync(bytes -> decode(bytes, boxW * guiScale, boxH * guiScale), DECODE)
-            .whenComplete((d, err) -> Minecraft.getInstance().execute(() -> finish(m, e, d, err, boxW, boxH)));
+    /** Bigger box than it was decoded for, and the box (not the source size or the pixel budget) was what limited it. */
+    static boolean wantsUpgrade(Entry e, int pxW, int pxH) {
+        if (e.state != State.READY || e.upgrading || e.texture == null) return false;
+        if (pxW < e.pxW * UPGRADE_RATIO && pxH < e.pxH * UPGRADE_RATIO) return false;
+        int[] fitted = FrameDecoder.fit(e.srcW, e.srcH, e.pxW, e.pxH);
+        boolean boxLimited = fitted[0] < e.srcW || fitted[1] < e.srcH;
+        return boxLimited && e.texture.textureW() == fitted[0];
     }
 
-    private static Decoded decode(byte[] bytes, int maxW, int maxH) {
-        try {
-            FrameDecoder.Frames f = FrameDecoder.decode(bytes, maxW, maxH);
-            return new Decoded(f, AnimatedTexture.toImages(f));
-        } catch (IOException ex) {
-            throw new CompletionException(ex);
-        }
+    private void start(ResolvedMedia m, Entry target, @Nullable Entry replacing, int boxW, int boxH, int pxW, int pxH) {
+        loading++;
+        CompletableFuture<Decoded> f;
+        try { f = loader.load(m, pxW, pxH); } catch (RuntimeException ex) { f = CompletableFuture.failedFuture(ex); }
+        f.whenComplete((d, err) -> renderThread.execute(() -> finish(m, target, replacing, d, err, boxW, boxH, pxW, pxH)));
     }
 
-    private void finish(ResolvedMedia m, Entry e, @Nullable Decoded d, @Nullable Throwable err, int boxW, int boxH) {
-        if (entries.get(m.key()) != e) {   // cleared or replaced while loading
+    private void finish(ResolvedMedia m, Entry target, @Nullable Entry replacing, @Nullable Decoded d, @Nullable Throwable err,
+                        int boxW, int boxH, int pxW, int pxH) {
+        loading--;
+        Entry current = entries.get(m.key());
+        if (current != (replacing != null ? replacing : target)) {   // cleared or replaced while loading
             if (d != null) AnimatedTexture.close(d.images());
             return;
         }
-        if (err != null) {
-            e.state = State.FAILED;
-            e.error = describe(m, err);
-            e.failedAt = Util.getMillis();
-            ImgPrevClient.LOG.debug("Preview {} failed: {}", m.key(), err.toString());
+        if (err != null || d == null) {
+            if (replacing != null) {   // keep the smaller preview; don't try again at this size
+                replacing.upgrading = false;
+                replacing.pxW = pxW;
+                replacing.pxH = pxH;
+                return;
+            }
+            target.state = State.FAILED;
+            target.error = describe(m, err);
+            target.failedAt = clock.getAsLong();
+            ImgPrevClient.LOG.debug("Preview {} failed: {}", m.key(), String.valueOf(err));
             return;
         }
-        FrameDecoder.Frames f = d.frames();
-        int[] display = FrameDecoder.fit(f.srcW(), f.srcH(), boxW, boxH);   // GUI units; the texture has up to guiScale× the pixels
-        e.texture = new AnimatedTexture(m.key(), f, d.images(), display[0], display[1]);
-        e.state = State.READY;
-        usedBytes += e.texture.bytes();
-        evictOverBudget(e);
+        int[] display = FrameDecoder.fit(d.srcW(), d.srcH(), boxW, boxH);   // GUI units; the texture has up to guiScale× the pixels
+        target.texture = new AnimatedTexture(m.key(), d.w(), d.h(), d.delaysMs(), d.images(), display[0], display[1]);
+        target.state = State.READY;
+        target.srcW = d.srcW();
+        target.srcH = d.srcH();
+        target.pxW = pxW;
+        target.pxH = pxH;
+        usedBytes += target.texture.bytes();
+        if (replacing != null) {
+            entries.replace(m.key(), target);
+            AnimatedTexture old = replacing.texture;
+            if (old != null) {
+                old.release();
+                usedBytes -= old.bytes();
+            }
+        }
+        evictOverBudget(target);
     }
 
     /** Releases least-recently-hovered textures until under budget; never the one just loaded. */
     private void evictOverBudget(Entry keep) {
-        long budget = ImgPrevClient.CONFIG.cacheBudgetBytes();
-        Iterator<Map.Entry<String, Entry>> it = entries.entrySet().iterator();
-        while (usedBytes > budget && it.hasNext()) {
-            Entry old = it.next().getValue();
+        long limit = budget.getAsLong();
+        Iterator<Entry> it = entries.values().iterator();
+        while (usedBytes > limit && it.hasNext()) {
+            Entry old = it.next();
             if (old == keep || old.texture == null) continue;
             old.texture.release();
             usedBytes -= old.texture.bytes();
@@ -119,19 +188,63 @@ public final class ImageCache {
         }
     }
 
-    static String describe(ResolvedMedia m, Throwable err) {
-        Throwable t = err;
-        while ((t instanceof CompletionException || t instanceof ExecutionException) && t.getCause() != null) t = t.getCause();
-        return switch (t) {
+    /** Forgets the oldest failed entries once there are more than {@link #MAX_EMPTY}. */
+    private void trimEmpty() {
+        int empty = 0;
+        for (Entry e : entries.values()) if (e.state == State.FAILED) empty++;
+        Iterator<Entry> it = entries.values().iterator();
+        while (empty > MAX_EMPTY && it.hasNext()) {
+            if (it.next().state == State.FAILED) {
+                it.remove();
+                empty--;
+            }
+        }
+    }
+
+    /** Download, decode, and copy into native memory; runs on the download and decode pools. */
+    static CompletableFuture<Decoded> download(ResolvedMedia m, int pxW, int pxH) {
+        int maxBytes = ImgPrevClient.CONFIG.maxDownloadBytes();
+        CompletableFuture<URI> uri;
+        try { uri = m.codec().mediaUri(m.payload()); } catch (RuntimeException ex) { uri = CompletableFuture.failedFuture(ex); }
+        return uri.thenCompose(u -> SafeHttp.get(u, m.codec().allowedDownloadHosts(), maxBytes, "image/"))
+            .thenApplyAsync(bytes -> decode(bytes, pxW, pxH), DECODE);
+    }
+
+    static Decoded decode(byte[] bytes, int maxW, int maxH) {
+        try {
+            FrameDecoder.Frames f = FrameDecoder.decode(bytes, maxW, maxH);
+            return new Decoded(f.w(), f.h(), f.srcW(), f.srcH(), f.delaysMs(), toImages(f.frames(), f.w(), f.h()));
+        } catch (IOException ex) {
+            throw new CompletionException(ex);
+        }
+    }
+
+    /** Copies ARGB frames into native RGBA images; nothing is left allocated if one fails. */
+    static NativeImage[] toImages(List<int[]> frames, int w, int h) {
+        NativeImage[] out = new NativeImage[frames.size()];
+        try {
+            for (int i = 0; i < out.length; i++) {
+                int[] px = frames.get(i);
+                out[i] = new NativeImage(w, h, false);
+                for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) out[i].setPixel(x, y, px[y * w + x]);   // ARGB in
+            }
+            return out;
+        } catch (RuntimeException | Error e) {
+            AnimatedTexture.close(out);
+            throw e;
+        }
+    }
+
+    static String describe(ResolvedMedia m, @Nullable Throwable err) {
+        return switch (err == null ? null : SafeHttp.unwrap(err)) {
             case MediaException e -> e.getMessage();
             case SafeHttp.HttpStatusException e when m.codec().code() == 'd' && (e.status == 403 || e.status == 404) -> "Discord link expired";
             case SafeHttp.HttpStatusException e when e.status == 404 || e.status == 410 -> "Image not found";
             case SafeHttp.HttpStatusException e when e.status == 429 -> "Rate limited, try again later";
             case SafeHttp.HttpStatusException e -> "Couldn't load image (HTTP " + e.status + ")";
-            case SecurityException e -> "Blocked: download left the site's servers";
             case HttpTimeoutException e -> "Timed out";
             case IIOException e -> "Couldn't decode image";
-            default -> "Couldn't load image";
+            case null, default -> "Couldn't load image";
         };
     }
 }

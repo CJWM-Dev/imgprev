@@ -31,6 +31,8 @@ public final class FrameDecoder {
     /** Bounds compositing work for long, large animations (frames × canvas pixels). */
     static final long MAX_COMPOSITE_PIXELS = 400_000_000L;
     static final int MIN_DELAY_MS = 20, SLOW_DELAY_MS = 100;
+    /** Longest a frame shows (dropped frames included), so 240 frames of end times stay well inside an int. */
+    static final int MAX_DELAY_MS = 600_000;
     static final String GIF_STREAM = "javax_imageio_gif_stream_1.0", GIF_IMAGE = "javax_imageio_gif_image_1.0";
 
     static {
@@ -130,7 +132,7 @@ public final class FrameDecoder {
                 frames.add(resize(canvas, cw, ch, out[0], out[1]));
                 delays.add(0);
             }
-            delays.set(delays.size() - 1, delays.getLast() + p.delayMs());   // dropped frames add to the shown one
+            delays.set(delays.size() - 1, Math.min(MAX_DELAY_MS, delays.getLast() + p.delayMs()));   // dropped frames add to the shown one
 
             if (p.dispose() == Dispose.BACKGROUND) clear(canvas, cw, ch, p.left(), p.top(), img.getWidth(), img.getHeight());
             else if (previous != null) canvas = previous;
@@ -153,8 +155,8 @@ public final class FrameDecoder {
     /** GIF delays are in 1/100 s. */
     static int delayMs(IIOMetadataNode gce) { return normalizeDelay(gce == null ? 0 : intAttr(gce, "delayTime") * 10); }
 
-    /** Like browsers, near-zero delays play at 100 ms. */
-    static int normalizeDelay(int ms) { return ms < MIN_DELAY_MS ? SLOW_DELAY_MS : ms; }
+    /** Like browsers, near-zero delays play at 100 ms; WebP allows 4.6 hours, capped here. */
+    static int normalizeDelay(int ms) { return ms < MIN_DELAY_MS ? SLOW_DELAY_MS : Math.min(ms, MAX_DELAY_MS); }
 
     static int[] logicalScreen(ImageReader reader) throws IOException {
         int w = 0, h = 0;
