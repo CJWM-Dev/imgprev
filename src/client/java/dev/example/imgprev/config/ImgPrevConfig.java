@@ -38,7 +38,7 @@ public final class ImgPrevConfig {
 
     static Map<String, Boolean> defaultSites() {
         Map<String, Boolean> m = new LinkedHashMap<>();
-        for (String code : new String[] {"g", "i", "t", "e", "d", "z", "y"}) m.put(code, true);
+        for (String code : new String[] {"g", "i", "t", "e", "d", "z", "y", "p", "b", "c"}) m.put(code, true);
         m.put("k", false);   // old Klipy slug tokens: every viewer needs their own API key
         return m;
     }

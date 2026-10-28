@@ -72,6 +72,9 @@ public final class ConfigScreen {
             case 'z' -> "Gyazo";
             case 'y' -> "Klipy";
             case 'k' -> "Klipy, old tokens (need your API key)";
+            case 'p' -> "Postimages";
+            case 'b' -> "ImgBB";
+            case 'c' -> "Catbox";
             default -> c.name();
         };
     }

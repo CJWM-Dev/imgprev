@@ -6,8 +6,13 @@ import java.util.function.Supplier;
 
 public final class SiteRegistry {
     static final KlipyCodec KLIPY_API = new KlipyCodec();
+    /** Sites whose share page links {@link LinkConverter} looks up. */
+    static final List<IdPathCodec> PAGES = List.of(
+        new IdPathCodec('p', "postimages", "Postimages", "i.postimg.cc", "postimg.cc"),
+        new IdPathCodec('b', "imgbb", "ImgBB", "i.ibb.co", "ibb.co"));
     private static final List<SiteCodec> ALL = List.of(new GiphyCodec(), new ImgurCodec(), new TenorMediaCodec(),
-        new DiscordEmojiCodec(), new DiscordAttachmentCodec(), new GyazoCodec(), new KlipyMediaCodec(), KLIPY_API);
+        new DiscordEmojiCodec(), new DiscordAttachmentCodec(), new GyazoCodec(), new KlipyMediaCodec(), KLIPY_API,
+        PAGES.get(0), PAGES.get(1), new CatboxCodec());
 
     private SiteRegistry() {}
 

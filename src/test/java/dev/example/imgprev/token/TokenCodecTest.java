@@ -42,6 +42,10 @@ class TokenCodecTest {
         "1es",              // emoji without snowflake
         "1d1-2-3",          // discord attachment needs 6 fields
         "1zx123",           // gyazo ext code not p/j/g
+        "1pAbC",            // postimages id < 6
+        "1bAbC12-xY",       // imgbb id with '-'
+        "1cxsa4ue3",        // catbox ext code not p/j/e/g/w
+        "1cpSA4UE3",        // catbox ids are lowercase
     })
     void payloadPatternMismatchRejected(String body) {
         assertTrue(TokenCodec.decode(craft(body)).isEmpty(), body);
@@ -62,6 +66,15 @@ class TokenCodecTest {
         "https://giphy.com/explore/cat",
         "https://cdn.discordapp.com/attachments/1100000000000000001/1300000000000000002/image.png",
         "https://i.gyazo.com/0123.png",
+        "https://postimg.cc/PCDc5McC",               // page links need a lookup
+        "https://ibb.co/S7csSRwd",
+        "https://i.ibb.co/M5f2dMkG/",
+        "https://i.ibb.co/M5f2dMkG/a/b.png",
+        "https://files.catbox.moe/sa4ue3.PNG",       // catbox 404s on a different case
+        "https://files.catbox.moe/SA4UE3.png",
+        "https://files.catbox.moe/sa4ue3.mp4",
+        "https://files.catbox.moe/sa4ue3",
+        "https://litter.catbox.moe/sa4ue3.png",
         "javascript:alert(1)",
         "not a url",
         "https://",

@@ -12,7 +12,7 @@ import net.minecraft.network.chat.Component;
 
 /**
  * Optional ({@code autoConvertLinks}): image links in outgoing chat, and in chat-like commands such as Hypixel's
- * {@code /pc}, become tokens as the message is sent. Messages needing a Klipy lookup are held back and re-sent once
+ * {@code /pc}, become tokens as the message is sent. Messages with page links to look up are held back and re-sent once
  * converted; anything that can't be sent is put back in the chat box with the reason.
  */
 public final class AutoConvert {
@@ -38,7 +38,7 @@ public final class AutoConvert {
     private static boolean allow(String text, boolean command) {
         List<String> lookups = LinkConverter.lookupsIn(text);
         if (lookups.isEmpty()) return fits(LinkConverter.convertNow(text), text, command);
-        if (!LinkConverter.canLookUp()) {
+        if (!lookups.stream().allMatch(LinkConverter::canLookUp)) {
             refuse(text, command, LinkConverter.KLIPY_NEEDS_KEY);
             return false;
         }

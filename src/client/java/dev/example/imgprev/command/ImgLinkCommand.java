@@ -45,11 +45,11 @@ public final class ImgLinkCommand {
             src.sendError(Component.literal(typed == null ? "Clipboard isn't a supported image link." : "That isn't a supported image link."));
             return 0;
         }
-        if (!LinkConverter.canLookUp()) {
+        if (!LinkConverter.canLookUp(link)) {
             src.sendError(Component.literal(LinkConverter.KLIPY_NEEDS_KEY));
             return 0;
         }
-        src.sendFeedback(Component.literal("Looking up the Klipy GIF…"));
+        src.sendFeedback(Component.literal("Looking up the image…"));
         LinkConverter.convert(link).whenComplete((t, err) -> mc.execute(() -> {
             if (err != null) src.sendError(Component.literal(LinkConverter.describe(err)));
             else deliver(src, t, openChat);

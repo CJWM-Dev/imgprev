@@ -47,6 +47,17 @@ class SiteRoundTripTest {
         https://i.gyazo.com/00000000000000000000000000000abc.jpg | https://i.gyazo.com/00000000000000000000000000000abc.jpg
         https://i.gyazo.com/ffffffffffffffffffffffffffffffff.gif | https://i.gyazo.com/ffffffffffffffffffffffffffffffff.gif
         https://i.gyazo.com/0123456789ABCDEF0123456789abcdef.png | https://i.gyazo.com/0123456789abcdef0123456789abcdef.png
+        # Postimages and ImgBB (the CDN ignores the filename and extension)
+        https://i.postimg.cc/XqRyT9nn/Screenshot-20210914-074956.png | https://i.postimg.cc/XqRyT9nn/image.png
+        https://i.postimg.cc/xTJgkP7T/PXL-20210912-152307783.jpg?dl=1 | https://i.postimg.cc/xTJgkP7T/image.png
+        https://i.ibb.co/M5f2dMkG/Full-Moon.webp | https://i.ibb.co/M5f2dMkG/image.png
+        https://I.IBB.CO/nqNMTVJT/IMG-20250831-171039.jpg | https://i.ibb.co/nqNMTVJT/image.png
+        # Catbox (case-sensitive; the exact extension is kept)
+        https://files.catbox.moe/sa4ue3.png | https://files.catbox.moe/sa4ue3.png
+        https://files.catbox.moe/ydqk4x.jpeg | https://files.catbox.moe/ydqk4x.jpeg
+        https://files.catbox.moe/q2n358.jpg | https://files.catbox.moe/q2n358.jpg
+        https://files.catbox.moe/q2n358.gif | https://files.catbox.moe/q2n358.gif
+        https://files.catbox.moe/q2n358.webp | https://files.catbox.moe/q2n358.webp
         """)
     void roundTripsToCanonicalUrl(String url, String expected) {
         assertLinkFree(token(url));
@@ -63,7 +74,8 @@ class SiteRoundTripTest {
     @Test void downloadsStayOnSiteHosts() {
         for (String url : new String[] {"https://media4.giphy.com/media/kj8RVuDxh4x7W/giphy.gif", "https://imgur.com/AbC12xY",
                 "https://media.tenor.com/1S3s5iesWX0AAAAM/x.gif", "https://media.discordapp.net/emojis/123456789012345678.png",
-                "https://gyazo.com/0123456789abcdef0123456789abcdef"}) {
+                "https://gyazo.com/0123456789abcdef0123456789abcdef", "https://i.postimg.cc/XqRyT9nn/x.png",
+                "https://i.ibb.co/M5f2dMkG/Full-Moon.webp", "https://files.catbox.moe/sa4ue3.png"}) {
             var m = media(url);
             assertTrue(m.codec().allowedDownloadHosts().contains(m.codec().mediaUri(m.payload()).join().getHost()), url);
         }

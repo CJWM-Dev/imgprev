@@ -18,8 +18,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Sender side: pasted links → tokens. Most links convert on the spot; Klipy page links are looked up with the
- * sender's own API key and become keyless CDN tokens, so the people reading them need nothing.
+ * Sender side: pasted links → tokens. Most links convert on the spot; page links are looked up first and become
+ * CDN tokens, so the people reading them need nothing. Klipy pages use the sender's own API key; Postimages and
+ * ImgBB pages just name their image.
  */
 public final class LinkConverter {
     public static final String KLIPY_NEEDS_KEY =
@@ -27,35 +28,46 @@ public final class LinkConverter {
     static final Pattern LINK = Pattern.compile("https://\\S+");
     static final String TRAILING = ".,!?;:)]}'\"";
 
+    record Page(IdPathCodec site, String id) {}
+
     private LinkConverter() {}
 
     /** True for links that can only become a token after a network lookup. */
-    public static boolean needsLookup(String url) { return klipySlug(url).isPresent(); }
+    public static boolean needsLookup(String url) { return klipySlug(url).isPresent() || page(url).isPresent(); }
 
-    public static boolean canLookUp() { return KlipyCodec.hasApiKey(); }
+    /** False while a lookup can't run: Klipy page links need the sender's API key. */
+    public static boolean canLookUp(String url) { return klipySlug(url).isEmpty() || KlipyCodec.hasApiKey(); }
 
     /** Completes with the token, or fails with a {@link MediaException} whose message can be shown as-is. */
     public static CompletableFuture<String> convert(String url) {
         Optional<String> direct = TokenCodec.encode(url);
         if (direct.isPresent()) return CompletableFuture.completedFuture(direct.get());
         Optional<String> slug = klipySlug(url);
-        if (slug.isEmpty()) return CompletableFuture.failedFuture(new MediaException("Not a supported image link"));
-        if (!canLookUp()) return CompletableFuture.failedFuture(new MediaException(KLIPY_NEEDS_KEY));
-        return SiteRegistry.KLIPY_API.mediaUri(slug.get()).thenApply(media -> TokenCodec.encode(media.toString())
-            .orElseThrow(() -> new CompletionException(new MediaException("Klipy returned an address ImgPrev can't use"))));
+        if (slug.isPresent()) {
+            if (!canLookUp(url)) return CompletableFuture.failedFuture(new MediaException(KLIPY_NEEDS_KEY));
+            return token(SiteRegistry.KLIPY_API.mediaUri(slug.get()), "Klipy");
+        }
+        Optional<Page> page = page(url);
+        if (page.isPresent()) return token(page.get().site().lookUp(page.get().id()), page.get().site().title());
+        return CompletableFuture.failedFuture(new MediaException("Not a supported image link"));
+    }
+
+    private static CompletableFuture<String> token(CompletableFuture<URI> media, String site) {
+        return media.thenApply(m -> TokenCodec.encode(m.toString())
+            .orElseThrow(() -> new CompletionException(new MediaException(site + " returned an address ImgPrev can't use"))));
     }
 
     /** {@code text} with every link that converts without a lookup replaced by its token. */
     public static String convertNow(String text) { return replaceLinks(text, TokenCodec::encode); }
 
-    /** Klipy page links in {@code text}, which {@link #convertNow} leaves alone. */
+    /** Page links in {@code text}, which {@link #convertNow} leaves alone. */
     public static List<String> lookupsIn(String text) {
         List<String> out = new ArrayList<>();
         replaceLinks(text, url -> { if (needsLookup(url) && !out.contains(url)) out.add(url); return Optional.empty(); });
         return out;
     }
 
-    /** Converts every link in {@code text}, looking up Klipy page links first. */
+    /** Converts every link in {@code text}, looking up page links first. */
     public static CompletableFuture<String> convertAll(String text) {
         Map<String, CompletableFuture<String>> pending = new LinkedHashMap<>();
         for (String url : lookupsIn(text)) pending.put(url, convert(url));
@@ -99,5 +111,16 @@ public final class LinkConverter {
 
     static Optional<String> klipySlug(String url) {
         try { return KlipyCodec.pageSlug(new URI(url)); } catch (URISyntaxException e) { return Optional.empty(); }
+    }
+
+    static Optional<Page> page(String url) {
+        URI u;
+        try { u = new URI(url); } catch (URISyntaxException e) { return Optional.empty(); }
+        if (!"https".equalsIgnoreCase(u.getScheme())) return Optional.empty();
+        for (IdPathCodec site : SiteRegistry.PAGES) {
+            Optional<String> id = site.pageId(u);
+            if (id.isPresent()) return Optional.of(new Page(site, id.get()));
+        }
+        return Optional.empty();
     }
 }

@@ -1,6 +1,6 @@
 # ImgPrev
 
-> **⚠️ Warning:** **Imgur is blocked in the UK**, so Imgur images won't load for UK players. **Klipy page links need a Klipy API key** (`/imgprev klipy key <key>`). Without one, use the GIF's image address from the Klipy page instead.
+> **⚠️ Warning:** **Imgur is blocked in the UK**, so Imgur images won't load for UK players. Postimages, ImgBB and Catbox work in the UK and are supported. **Klipy page links need a Klipy API key** (`/imgprev klipy key <key>`). Without one, use the GIF's image address from the Klipy page instead.
 
 Hover previews for image links in Minecraft chat, for Fabric 26.2.
 
@@ -10,7 +10,8 @@ Tokens look like `<~1gXJtM2nNFCzT3etvzOB~>`. They contain no links, so chat filt
 
 ## Features
 
-- **Previews** for Giphy, Imgur, Tenor, Discord emoji and attachments, Gyazo, and Klipy. Still images, animated GIFs, and animated WebP are all supported.
+- **Previews** for Giphy, Imgur, Tenor, Discord emoji and attachments, Gyazo, Klipy, Postimages, ImgBB, and Catbox. Still images, animated GIFs, and animated WebP are all supported.
+- **Share page links work too.** Postimages (`postimg.cc/…`) and ImgBB (`ibb.co/…`) page links are looked up when you convert them, so you don't need to find the direct image address.
 - **Full-resolution drawing.** Previews are decoded at your screen's resolution and scaled smoothly.
 - **Auto-convert links.** Optionally turns links you send into tokens automatically. This also works in commands such as party chat (`/pc`) or `/msg`.
 - **Settings screen** through Mod Menu, plus a `/imgprev` chat command for quick changes.
