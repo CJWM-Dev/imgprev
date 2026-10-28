@@ -11,6 +11,7 @@
     "issues": "https://github.com/CJWM-Dev/imgprev/issues"
   },
   "license": "All Rights Reserved",
+  "icon": "assets/imgprev/icon.png",
   "environment": "client",
   "entrypoints": {
     "client": ["io.github.cjwmdev.imgprev.ImgPrevClient"],
