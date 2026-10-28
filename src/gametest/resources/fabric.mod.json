@@ -6,10 +6,10 @@
   "environment": "client",
   "entrypoints": {
     "fabric-client-gametest": [
-      "dev.example.imgprev.gametest.ImgLinkClientGameTest",
-      "dev.example.imgprev.gametest.ChatPreviewClientGameTest",
-      "dev.example.imgprev.gametest.SettingsClientGameTest",
-      "dev.example.imgprev.gametest.SendingClientGameTest"
+      "io.github.cjwmdev.imgprev.gametest.ImgLinkClientGameTest",
+      "io.github.cjwmdev.imgprev.gametest.ChatPreviewClientGameTest",
+      "io.github.cjwmdev.imgprev.gametest.SettingsClientGameTest",
+      "io.github.cjwmdev.imgprev.gametest.SendingClientGameTest"
     ]
   },
   "depends": { "imgprev": "*" }

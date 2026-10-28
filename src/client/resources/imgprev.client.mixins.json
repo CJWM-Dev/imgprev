@@ -1,6 +1,6 @@
 {
   "required": true,
-  "package": "dev.example.imgprev.mixin",
+  "package": "io.github.cjwmdev.imgprev.mixin",
   "compatibilityLevel": "JAVA_25",
   "client": [
     "ChatComponentMixin",
