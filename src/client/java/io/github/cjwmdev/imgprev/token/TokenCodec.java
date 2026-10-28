@@ -1,5 +1,6 @@
 package io.github.cjwmdev.imgprev.token;
 
+import io.github.cjwmdev.imgprev.site.DiscordProxy;
 import io.github.cjwmdev.imgprev.site.SiteCodec;
 import io.github.cjwmdev.imgprev.site.SiteRegistry;
 import java.net.URI;
@@ -32,6 +33,7 @@ public final class TokenCodec {
         URI uri;
         try { uri = new URI(url); } catch (URISyntaxException e) { return Optional.empty(); }
         if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null) return Optional.empty();
+        uri = DiscordProxy.unwrap(uri).orElse(uri);
         // Several codecs can share a host (Discord emoji + attachments), so try each until one accepts the path.
         for (SiteCodec c : SiteRegistry.byHost(uri.getHost().toLowerCase(Locale.ROOT))) {
             Optional<String> p = c.payloadFrom(uri).filter(s -> c.payloadPattern().matcher(s).matches()).flatMap(s -> compact(c, s));

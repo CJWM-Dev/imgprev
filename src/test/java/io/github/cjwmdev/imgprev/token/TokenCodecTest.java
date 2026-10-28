@@ -56,6 +56,20 @@ class TokenCodecTest {
         assertEquals(v2.key(), v1.key());
     }
 
+    /** A Tenor MP4 link (what Discord's proxy carries) previews as its post's full-size GIF. */
+    @Test void tenorMp4BecomesFullSizeGif() {
+        String gif = TokenCodec.encode("https://media.tenor.com/wQnHMN5pJXAAAAAC/x.gif").orElseThrow();
+        assertEquals(gif, TokenCodec.encode("https://media.tenor.com/wQnHMN5pJXAAAAPo/mynameisgus-gusfring.mp4").orElseThrow());
+    }
+
+    @Test void discordProxyLinkUnwraps() {
+        String direct = TokenCodec.encode("https://media.tenor.com/wQnHMN5pJXAAAAPo/mynameisgus-gusfring.mp4").orElseThrow();
+        assertEquals(direct, TokenCodec.encode(
+            "https://images-ext-1.discordapp.net/external/D5PqpD_DY0rKsf78ftptjAK41ixXHdszruMpBrTXNsI/https/media.tenor.com/wQnHMN5pJXAAAAPo/mynameisgus-gusfring.mp4").orElseThrow());
+        assertEquals(TokenCodec.encode("https://i.imgur.com/AbC12xY.png").orElseThrow(), TokenCodec.encode(
+            "https://images-ext-2.discordapp.net/external/sig/https/i.imgur.com/AbC12xY.png?width=400&height=300").orElseThrow());
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {
         "1gabc",            // giphy id < 5
@@ -84,7 +98,11 @@ class TokenCodecTest {
         "https://imgur.com/a/AbC12xY",
         "https://imgur.com/gallery/AbC12xY",
         "https://tenor.com/view/cat-gif-123456",
-        "https://media.tenor.com/1S3s5iesWX0AAAPo/x.mp4",
+        "https://media.tenor.com/1S3s5iesWX0AAAAC/x.mp4",     // only the MP4 rendition maps to a GIF
+        "https://images-ext-1.discordapp.net/external/sig/https/example.com/a.png",
+        "https://images-ext-1.discordapp.net/external/sig/http/media.tenor.com/1S3s5iesWX0AAAAC/x.gif",
+        "https://images-ext-1.discordapp.net.evil.com/external/sig/https/media.tenor.com/1S3s5iesWX0AAAAC/x.gif",
+        "https://images-ext-1.discordapp.net/attachments/1/2/x.png",
         "https://giphy.com/explore/cat",
         "https://cdn.discordapp.com/attachments/1100000000000000001/1300000000000000002/image.png",
         "https://i.gyazo.com/0123.png",

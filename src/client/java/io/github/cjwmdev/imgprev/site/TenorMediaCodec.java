@@ -19,10 +19,12 @@ import java.util.regex.Pattern;
  */
 final class TenorMediaCodec extends BaseCodec {
     static final Pattern KEY = Pattern.compile("[A-Za-z0-9_-]{8,32}");
-    static final Pattern PATH = Pattern.compile("^(?i:/m)?/([A-Za-z0-9_-]{8,32})/[^/]+\\.(?i:gif)$");
+    static final Pattern PATH = Pattern.compile("^(?i:/m)?/([A-Za-z0-9_-]{8,32})/[^/]+\\.((?i:gif|mp4))$");
     static final String KEY_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
     /** Key endings that pick a rendition: the 220 px medium GIF and the full-size one. */
     static final String MEDIUM = "AAAAM", FULL = "AAAAC";
+    /** Key ending of the MP4 rendition (Discord's proxy links to it); its post is previewed as the full-size GIF. */
+    static final String MP4 = "AAAPo";
 
     TenorMediaCodec() {
         super('t', "tenor", "Tenor", Label.GIF, Set.of("media.tenor.com", "media1.tenor.com", "c.tenor.com"), Set.of("media.tenor.com"));
@@ -32,7 +34,18 @@ final class TenorMediaCodec extends BaseCodec {
 
     @Override public Optional<String> payloadFrom(URI u) {
         Matcher m = PATH.matcher(u.getPath());
-        return m.matches() ? Optional.of(postId(m.group(1)).map(TenorMediaCodec::fullGif).orElse(m.group(1))) : Optional.empty();
+        if (!m.matches()) return Optional.empty();
+        if (m.group(2).equalsIgnoreCase("mp4")) {   // video: only a standard MP4 key, which maps to its post's GIF
+            Optional<BigInteger> id = m.group(1).endsWith(MP4) ? postIdIgnoringRendition(m.group(1)) : Optional.empty();
+            return id.map(TenorMediaCodec::fullGif);
+        }
+        return Optional.of(postId(m.group(1)).map(TenorMediaCodec::fullGif).orElse(m.group(1)));
+    }
+
+    /** The post id of a 16-character key whatever its rendition. */
+    static Optional<BigInteger> postIdIgnoringRendition(String key) {
+        if (key.length() != 16) return Optional.empty();
+        return Optional.of(new BigInteger(1, Arrays.copyOf(Base64.getUrlDecoder().decode(key), 8)));
     }
 
     /** The post id of a standard 16-character key. */
