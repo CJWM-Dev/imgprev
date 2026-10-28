@@ -1,22 +1,31 @@
 package dev.example.imgprev.command;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import dev.example.imgprev.ImgPrevClient;
+import dev.example.imgprev.chat.TokenStyler;
+import dev.example.imgprev.config.ConfigScreen;
 import dev.example.imgprev.config.ImgPrevConfig;
 import dev.example.imgprev.site.SiteCodec;
 import dev.example.imgprev.site.SiteRegistry;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.function.BiConsumer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
 import net.minecraft.commands.CommandBuildContext;
+import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.TextColor;
 
 /**
- * {@code /imgprev} settings. Every change is saved to config/imgprev.json. Toggles apply to new chat lines and to
- * hovering; labels already in chat stay as they are.
+ * {@code /imgprev} settings. Every change is saved to config/imgprev.json. Toggles and the label colour apply to new
+ * chat lines and to hovering; labels already in chat stay as they are. {@code /imgprev settings} opens the screen.
  */
 public final class ImgPrevCommand {
     private ImgPrevCommand() {}
@@ -31,6 +40,9 @@ public final class ImgPrevCommand {
         d.register(ClientCommands.literal("imgprev")
             .requires(FabricClientCommandSource::attended)
             .executes(c -> status(c.getSource()))
+            .then(ClientCommands.literal("settings").executes(c -> openSettings(c.getSource())))
+            .then(colour("colour"))
+            .then(colour("color"))
             .then(toggle("on", (src, cfg) -> { cfg.renderEnabled = true; src.sendFeedback(ok("Image previews on")); }))
             .then(toggle("off", (src, cfg) -> { cfg.renderEnabled = false; src.sendFeedback(ok("Image previews off")); }))
             .then(ClientCommands.literal("shift")
@@ -51,6 +63,59 @@ public final class ImgPrevCommand {
                 c.getSource().sendFeedback(ok("Reloaded " + ImgPrevConfig.path().getFileName()));
                 return 1;
             })));
+    }
+
+    /** Typed commands run inside the ChatScreen's key handler, which closes the screen afterwards, so this waits a frame. */
+    private static int openSettings(FabricClientCommandSource src) {
+        if (!FabricLoader.getInstance().isModLoaded("cloth-config")) {
+            src.sendError(Component.literal("The settings screen needs Cloth Config. The /imgprev commands change the same settings."));
+            return 0;
+        }
+        Minecraft mc = src.getClient();
+        mc.schedule(() -> mc.gui.setScreen(ConfigScreen.create(null)));
+        return 1;
+    }
+
+    /** {@code /imgprev colour <gif|image|emoji|discord> <name|#RRGGBB>} and {@code /imgprev colour reset}; "color" is the same command. */
+    private static LiteralArgumentBuilder<FabricClientCommandSource> colour(String name) {
+        LiteralArgumentBuilder<FabricClientCommandSource> root = ClientCommands.literal(name)
+            .then(toggle("reset", (src, cfg) -> {
+                cfg.labelColors = ImgPrevConfig.defaultLabelColors();
+                src.sendFeedback(Component.literal("Label colours reset:").append(allLabels(cfg)));
+            }));
+        for (String label : ImgPrevConfig.LABELS) {
+            root.then(ClientCommands.literal(label.toLowerCase(Locale.ROOT)).then(ClientCommands.argument("colour", StringArgumentType.greedyString())
+                .suggests((c, b) -> SharedSuggestionProvider.suggest(ImgPrevConfig.PRESET_COLORS.stream()
+                    .map(p -> ImgPrevConfig.colorName(p).toLowerCase(Locale.ROOT).replace(' ', '_')), b))
+                .executes(c -> {
+                    FabricClientCommandSource src = c.getSource();
+                    Optional<TextColor> colour = ImgPrevConfig.parseColor(StringArgumentType.getString(c, "colour"));
+                    if (colour.isEmpty()) {
+                        src.sendError(Component.literal("Use a chat colour such as aqua or gold, or a hex colour like #FF8800"));
+                        return 0;
+                    }
+                    ImgPrevClient.CONFIG.labelColors.put(label, colour.get().serialize());
+                    ImgPrevClient.CONFIG.save();
+                    src.sendFeedback(Component.literal(label + " labels are now ").append(swatch(label, colour.get())));
+                    return 1;
+                })));
+        }
+        return root;
+    }
+
+    /** "[▶ Gold]" in that colour. */
+    static Component swatch(String label, TextColor c) {
+        return Component.literal("[" + TokenStyler.icon(label) + " " + ImgPrevConfig.colorName(c) + "]").withStyle(s -> s.withColor(c));
+    }
+
+    /** " [▶ GIF] [⧈ Image] [☺ Emoji] [✉ Discord]", each in its colour. */
+    static Component allLabels(ImgPrevConfig cfg) {
+        MutableComponent out = Component.empty();
+        for (String label : ImgPrevConfig.LABELS) {
+            TextColor c = cfg.labelColor(label);
+            out.append(Component.literal(" ")).append(Component.literal(TokenStyler.labelText(label)).withStyle(s -> s.withColor(c)));
+        }
+        return out;
     }
 
     /** A literal that edits the config, then saves it. */
@@ -76,6 +141,8 @@ public final class ImgPrevCommand {
         }
         src.sendFeedback(Component.literal("ImgPrev: previews " + (cfg.renderEnabled ? "on" : "off")
             + (cfg.requireShift ? ", Shift to preview" : "") + (cfg.autoConvertLinks ? ", auto-convert on" : "") + ". Sites:").append(sites));
+        src.sendFeedback(Component.literal("Labels:").append(allLabels(cfg))
+            .append(Component.literal(". All settings: /imgprev settings").withStyle(ChatFormatting.GRAY)));
         src.sendFeedback(Component.literal(String.format("Cache: %d images, %.1f of %d MB",
             ImgPrevClient.CACHE.size(), ImgPrevClient.CACHE.usedBytes() / 1048576.0, cfg.cacheBudgetMB))
             .withStyle(ChatFormatting.GRAY));

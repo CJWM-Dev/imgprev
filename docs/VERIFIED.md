@@ -123,7 +123,7 @@ Without it, vanilla `ClientTooltipComponent.create(TooltipComponent)` throws `Il
 The client game tests in `src/gametest` drive a real 26.2 client and confirm the items above in practice: both mixins apply; tokens become labels for server system messages and player chat; hovering a label (real cursor input) goes through `componentHoverEffect` and shows the image via the custom tooltip component; Giphy and Tenor GIFs download, decode and animate; errors, the Discord expiry check, budget eviction, and every `/imgprev` setting behave as intended. Two things only showed up there:
 
 - Chat hover uses `GuiGraphicsExtractor.mouseX/mouseY`, captured when the extractor is built each frame from `MouseHandler#getScaledXPos`, and hit-tests with `ActiveTextCollector.findElementUnderCursor`.
-- `🖼` (U+1F5BC) renders from Minecraft's Unifont fallback as a framed-picture glyph, not the missing-glyph box.
+- `🖼` (U+1F5BC) renders from Minecraft's Unifont fallback as a framed-picture glyph, not the missing-glyph box. Since 2026-10-28 labels use one symbol per kind instead, all from the bitmap font's own glyphs (`font/include/default.json`), which stay crisp at every GUI scale: `▶` GIF (U+25B6), `⧈` Image (U+29C8), `☺` Emoji (U+263A), `✉` Discord (U+2709).
 
 AWT: the client's `Main` sets `java.awt.headless=true` unconditionally, so `javax.imageio` never touches a window system; `FrameDecoder` still composites with plain `int[]` (no `Graphics2D`).
 

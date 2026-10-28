@@ -13,7 +13,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.network.chat.TextColor;
 
 /** {@code config/imgprev.json}. Missing fields keep their defaults; out-of-range numbers are clamped. */
 public final class ImgPrevConfig {
@@ -34,11 +36,55 @@ public final class ImgPrevConfig {
     public boolean autoConvertLinks = false;
     /** Commands whose text is chat (Hypixel's party/guild/officer chat, private messages), converted like chat. */
     public List<String> autoConvertCommands = defaultCommands();
+    /** Colour of each kind of label ({@code GIF}, {@code Image}, …): a chat colour name such as {@code aqua}, or {@code #RRGGBB}. */
+    public Map<String, String> labelColors = defaultLabelColors();
+
+    /** The kinds of label, in the order the settings screen and {@code /imgprev colour} offer them. */
+    public static final List<String> LABELS = List.of("GIF", "Image", "Emoji", "Discord");
+    /** Minecraft's 16 chat colours, in the order the settings screen offers them. */
+    public static final List<TextColor> CHAT_COLORS = List.of(TextColor.AQUA, TextColor.DARK_AQUA, TextColor.BLUE, TextColor.DARK_BLUE,
+        TextColor.LIGHT_PURPLE, TextColor.DARK_PURPLE, TextColor.RED, TextColor.DARK_RED, TextColor.GOLD, TextColor.YELLOW,
+        TextColor.GREEN, TextColor.DARK_GREEN, TextColor.WHITE, TextColor.GRAY, TextColor.DARK_GRAY, TextColor.BLACK);
+    /** Extra named presets beyond the chat colours; saved as their hex value. Blurple is Discord's older, lighter one. */
+    static final Map<String, Integer> EXTRA_COLORS = extraColors();
+    /** Everything the settings screen offers in its colour lists: the chat colours, then the extras. */
+    public static final List<TextColor> PRESET_COLORS = presetColors();
+
+    private static Map<String, Integer> extraColors() {
+        Map<String, Integer> m = new LinkedHashMap<>();
+        m.put("orange", 0xFF8800);
+        m.put("pink", 0xFF69B4);
+        m.put("lavender", 0xB39DDB);
+        m.put("mint", 0x98FF98);
+        m.put("sky_blue", 0x87CEEB);
+        m.put("blurple", 0x7289DA);
+        return m;
+    }
+
+    private static List<TextColor> presetColors() {
+        List<TextColor> all = new ArrayList<>(CHAT_COLORS);
+        EXTRA_COLORS.values().forEach(rgb -> all.add(TextColor.fromRgb(rgb)));
+        return List.copyOf(all);
+    }
 
     static Map<String, Boolean> defaultSites() {
         Map<String, Boolean> m = new LinkedHashMap<>();
         for (String code : new String[] {"g", "i", "t", "e", "d", "z", "y", "p", "b", "c"}) m.put(code, true);
         return m;
+    }
+
+    /** Discord's is its older, lighter blurple, which reads better on chat's dark background than the current one. */
+    public static Map<String, String> defaultLabelColors() {
+        Map<String, String> m = new LinkedHashMap<>();
+        m.put("GIF", "aqua");
+        m.put("Image", "green");
+        m.put("Emoji", "yellow");
+        m.put("Discord", "#7289DA");
+        return m;
+    }
+
+    public static TextColor defaultLabelColor(String label) {
+        return parseColor(defaultLabelColors().getOrDefault(label, "aqua")).orElse(TextColor.AQUA);
     }
 
     static List<String> defaultCommands() { return new ArrayList<>(List.of("msg", "tell", "w", "r", "pc", "gc", "oc", "ac")); }
@@ -84,6 +130,12 @@ public final class ImgPrevConfig {
         if (autoConvertCommands == null) autoConvertCommands = defaultCommands();
         autoConvertCommands.replaceAll(c -> c.strip().replaceFirst("^/", "").toLowerCase(Locale.ROOT));
         autoConvertCommands.removeIf(String::isEmpty);
+        Map<String, String> colors = new LinkedHashMap<>();
+        for (String label : LABELS) {
+            String chosen = labelColors == null ? null : labelColors.get(label);
+            colors.put(label, (chosen == null ? Optional.<TextColor>empty() : parseColor(chosen)).orElse(defaultLabelColor(label)).serialize());
+        }
+        labelColors = colors;
     }
 
     public long cacheBudgetBytes() { return cacheBudgetMB * MB; }
@@ -91,4 +143,29 @@ public final class ImgPrevConfig {
 
     public boolean siteEnabled(char code) { return sites.getOrDefault(String.valueOf(code), true); }
     public boolean allows(ResolvedMedia m) { return siteEnabled(m.codec().code()); }
+
+    /** The colour for one kind of label, e.g. {@code "GIF"}. */
+    public TextColor labelColor(String label) {
+        String chosen = labelColors.get(label);
+        return (chosen == null ? Optional.<TextColor>empty() : parseColor(chosen)).orElse(defaultLabelColor(label));
+    }
+
+    /** A chat colour or preset name ({@code dark_red}, {@code Sky Blue}) or a hex colour with or without {@code #}. */
+    public static Optional<TextColor> parseColor(String s) {
+        String c = s.strip().toLowerCase(Locale.ROOT).replace(' ', '_');
+        if (EXTRA_COLORS.containsKey(c)) return Optional.of(TextColor.fromRgb(EXTRA_COLORS.get(c)));
+        if (c.matches("[0-9a-f]{6}")) c = "#" + c;
+        return c.matches("#[0-9a-f]{6}|[a-z_]+") ? TextColor.parseColor(c).result() : Optional.empty();
+    }
+
+    /** "dark_aqua" → "Dark aqua", #FF8800 → "Orange"; other hex colours as they are. */
+    public static String colorName(TextColor c) {
+        String s = c.serialize();
+        if (s.startsWith("#")) {
+            s = EXTRA_COLORS.entrySet().stream().filter(e -> e.getValue() == c.getValue()).map(Map.Entry::getKey).findFirst().orElse(s);
+            if (s.startsWith("#")) return s;
+        }
+        s = s.replace('_', ' ');
+        return Character.toUpperCase(s.charAt(0)) + s.substring(1);
+    }
 }

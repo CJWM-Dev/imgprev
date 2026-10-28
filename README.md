@@ -4,7 +4,7 @@
 
 Hover previews for image links in Minecraft chat, for Fabric 26.2.
 
-ImgPrev turns image links into short tokens you can send without the link text. Anyone with ImgPrev sees a small `[🖼 GIF]` label, and hovering over it shows the image or animated GIF. Players without the mod see the token as plain text, so nothing breaks for them.
+ImgPrev turns image links into short tokens you can send without the link text. Anyone with ImgPrev sees a small label such as `[▶ GIF]` or `[⧈ Image]`, and hovering over it shows the image or animated GIF. Players without the mod see the token as plain text, so nothing breaks for them.
 
 Tokens look like `<~GXJtM2nNFCzT3etvzOBK~>`. They contain no links, so chat filters and link-blocking won't touch them. Since 0.3.0, tokens are shorter, and players need 0.3.0 or newer to preview them. Tokens from older versions still work.
 
@@ -14,7 +14,8 @@ Tokens look like `<~GXJtM2nNFCzT3etvzOBK~>`. They contain no links, so chat filt
 - **Share page links work too.** Postimages (`postimg.cc/…`) and ImgBB (`ibb.co/…`) page links are looked up when you convert them, so you don't need to find the direct image address.
 - **Full-resolution drawing.** Previews are decoded at your screen's resolution and scaled smoothly.
 - **Auto-convert links.** Optionally turns links you send into tokens automatically. This also works in commands such as party chat (`/pc`) or `/msg`.
-- **Settings screen** through Mod Menu, plus a `/imgprev` chat command for quick changes.
+- **Settings screen** with `/imgprev settings` or through Mod Menu, plus `/imgprev` chat commands for quick changes.
+- **Label colours.** Each kind of label (GIF, Image, Emoji, Discord) has its own colour. Pick a preset or type any hex colour.
 - **Client-side only.** Works on any server. The server only ever sees the token text.
 
 ## Installation
@@ -22,7 +23,7 @@ Tokens look like `<~GXJtM2nNFCzT3etvzOBK~>`. They contain no links, so chat filt
 1. Install [Fabric Loader](https://fabricmc.net/use/) 0.19.3 or newer for Minecraft 26.2.
 2. Put [Fabric API](https://modrinth.com/mod/fabric-api) 0.161.0+26.2 in your `mods` folder.
 3. Download `imgprev-<version>.jar` from the [releases page](https://github.com/CJWM-Dev/imgprev/releases) and put it in your `mods` folder.
-4. Optional, for the settings screen: add [Mod Menu](https://modrinth.com/mod/modmenu) 20.0.3 and [Cloth Config](https://modrinth.com/mod/cloth-config) 26.2.155.
+4. Optional, for the settings screen: add [Cloth Config](https://modrinth.com/mod/cloth-config) 26.2.155. Add [Mod Menu](https://modrinth.com/mod/modmenu) 20.0.3 to open it from the Mods list as well.
 
 Requires Java 25.
 
@@ -30,14 +31,17 @@ Requires Java 25.
 
 **Sending an image:** Use `/imglink <link>` to copy a token to your clipboard, or `/imglink chat <link>` to put the token straight into the chat box. If auto-convert is on, you can just paste a link and press Enter.
 
-**Settings:** Open Mod Menu, select ImgPrev, and click the gear icon. Or type `/imgprev` for the current status. Useful commands:
+**Settings:** Type `/imgprev settings` to open the settings screen (needs Cloth Config), or open it from Mod Menu. Type `/imgprev` for the current status. Useful commands:
 
 | Command | What it does |
 |---|---|
+| `/imgprev settings` | Open the settings screen |
 | `/imgprev on` / `off` | Turn previews on or off |
 | `/imgprev shift on` | Only show previews while holding Shift |
 | `/imgprev autoconvert on` | Convert links when you send them |
 | `/imgprev site <name> on` / `off` | Turn a site's previews on or off |
+| `/imgprev colour <gif\|image\|emoji\|discord> <colour>` | Set a label colour: a preset such as `gold` or `orange`, or a hex colour like `#FF8800` |
+| `/imgprev colour reset` | Put every label colour back to its default |
 | `/imgprev cache clear` | Free the image cache |
 
 **Klipy page links** (`klipy.com/gifs/…`) can't be converted, because Klipy only gives out the GIF's address through an API that needs a key. Right-click the GIF on the page and copy its image address (`static.klipy.com/…`) instead. That works for everyone, with no setup.

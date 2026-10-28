@@ -39,6 +39,8 @@ dependencies {
         compileOnly(it) { transitive = false }
         localRuntime(it) { transitive = false }
     }
+    // Cloth's colour field API names its Color class; Cloth Config ships this jar inside itself.
+    compileOnly("me.shedaniel.cloth:basic-math:0.6.1") { transitive = false }
 
     testImplementation "org.junit.jupiter:junit-jupiter:5.11.0"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"   // Gradle 9 no longer supplies it; version from the JUnit BOM

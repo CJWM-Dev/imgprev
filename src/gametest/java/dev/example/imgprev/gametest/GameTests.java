@@ -11,6 +11,7 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.chat.GuiMessage;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import org.lwjgl.glfw.GLFW;
 
@@ -34,10 +35,12 @@ final class GameTests {
     static String lastChat(ClientGameTestContext ctx) { return ctx.computeOnClient(GameTests::lastChat); }
 
     /** Client-thread variant, usable inside {@code waitFor} predicates. */
+    static String lastChat(Minecraft mc) { return lastChatLine(mc).getString(); }
+
     @SuppressWarnings("unchecked")
-    static String lastChat(Minecraft mc) {
+    static Component lastChatLine(Minecraft mc) {
         List<GuiMessage> all = (List<GuiMessage>) read(ChatComponent.class, "allMessages", mc.gui.hud.getChat());
-        return all.isEmpty() ? "" : all.getFirst().content().getString();   // newest first
+        return all.isEmpty() ? Component.empty() : all.getFirst().content();   // newest first
     }
 
     static String chatInput(ClientGameTestContext ctx) {

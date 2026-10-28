@@ -39,7 +39,7 @@ final class IdPathCodec implements SiteCodec {
     public Set<String> acceptedHosts() { return hosts; }
     public Pattern payloadPattern() { return ID; }
     public Set<String> allowedDownloadHosts() { return hosts; }
-    String title() { return title; }
+    public String title() { return title; }
 
     public Optional<String> payloadFrom(URI u) {
         Matcher m = PATH.matcher(u.getPath());

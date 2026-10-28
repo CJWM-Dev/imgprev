@@ -34,6 +34,7 @@ final class KlipyMediaCodec implements SiteCodec {
 
     public char code() { return 'y'; }
     public String name() { return "klipy"; }
+    public String title() { return "Klipy"; }
     public String label() { return "GIF"; }
     public Set<String> acceptedHosts() { return HOSTS; }
     public Pattern payloadPattern() { return P; }

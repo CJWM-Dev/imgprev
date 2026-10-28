@@ -21,6 +21,7 @@ final class GyazoCodec implements SiteCodec {
 
     public char code() { return 'z'; }
     public String name() { return "gyazo"; }
+    public String title() { return "Gyazo"; }
     public String label() { return "Image"; }
     public Set<String> acceptedHosts() { return HOSTS; }
     public Pattern payloadPattern() { return P; }

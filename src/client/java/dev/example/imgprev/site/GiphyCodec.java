@@ -16,6 +16,7 @@ final class GiphyCodec implements SiteCodec {
 
     public char code() { return 'g'; }
     public String name() { return "giphy"; }
+    public String title() { return "Giphy"; }
     public String label() { return "GIF"; }
     public Set<String> acceptedHosts() { return HOSTS; }
     public Pattern payloadPattern() { return ID; }

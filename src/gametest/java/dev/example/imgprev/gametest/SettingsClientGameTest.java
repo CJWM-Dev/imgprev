@@ -7,6 +7,7 @@ import static dev.example.imgprev.gametest.ChatPreviewClientGameTest.hover;
 import static dev.example.imgprev.gametest.GameTests.assertEquals;
 import static dev.example.imgprev.gametest.GameTests.assertTrue;
 import static dev.example.imgprev.gametest.GameTests.lastChat;
+import static dev.example.imgprev.gametest.GameTests.lastChatLine;
 import static dev.example.imgprev.gametest.GameTests.typeInChat;
 
 import dev.example.imgprev.ImgPrevClient;
@@ -16,11 +17,14 @@ import dev.example.imgprev.token.TokenCodec;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
+import java.util.Optional;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.TextColor;
 import org.lwjgl.glfw.GLFW;
 
 /** /imgprev settings take effect, persist to config/imgprev.json, and reload from it. */
@@ -42,13 +46,13 @@ public final class SettingsClientGameTest implements FabricClientGameTest {
             assertEquals("x " + GIF, lastChat(ctx), "token left alone while off");
             typeInChat(ctx, "/imgprev on");
             system(ctx, "x " + GIF);
-            assertEquals("x [🖼 GIF]", lastChat(ctx), "labelled again when on");
+            assertEquals("x [▶ GIF]", lastChat(ctx), "labelled again when on");
 
             // Per-site switch, persisted to disk.
             typeInChat(ctx, "/imgprev site giphy off");
             assertEquals("giphy previews off", lastChat(ctx), "site feedback");
             system(ctx, GIF + " " + IMG);
-            assertEquals(GIF + " [🖼 Image]", lastChat(ctx), "only giphy left as text");
+            assertEquals(GIF + " [⧈ Image]", lastChat(ctx), "only giphy left as text");
             assertEquals(false, ImgPrevConfig.load().sites.get("g"), "giphy off saved to disk");
             typeInChat(ctx, "/imgprev site giphy on");
 
@@ -88,7 +92,44 @@ public final class SettingsClientGameTest implements FabricClientGameTest {
             assertTrue(ctx.computeOnClient(mc -> mc.gui.screen() != null && !(mc.gui.screen() instanceof ChatScreen)), "settings screen open");
             ctx.takeScreenshot("settings-screen");
             ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+
+            // /imgprev settings opens the same screen straight from chat, after the chat screen has closed.
+            typeInChat(ctx, "/imgprev settings");
+            ctx.waitTicks(2);
+            assertTrue(ctx.computeOnClient(mc -> mc.gui.screen() != null && !(mc.gui.screen() instanceof ChatScreen)), "settings screen from command");
+            ctx.takeScreenshot("settings-from-command");
+            ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+
+            // Label colours, one per kind: new labels take them, and they're saved.
+            system(ctx, "c " + IMG);
+            assertEquals(TextColor.GREEN, labelColour(ctx), "image labels default to green");
+            typeInChat(ctx, "/imgprev colour gif gold");
+            assertEquals("GIF labels are now [▶ Gold]", lastChat(ctx), "colour feedback");
+            system(ctx, "c " + GIF);
+            assertEquals(TextColor.GOLD, labelColour(ctx), "gold GIF label");
+            system(ctx, "c " + IMG);
+            assertEquals(TextColor.GREEN, labelColour(ctx), "image label unchanged");
+            assertEquals("gold", ImgPrevConfig.load().labelColors.get("GIF"), "colour saved to disk");
+            typeInChat(ctx, "/imgprev colour image #123456");
+            system(ctx, "c " + IMG);
+            assertEquals(0x123456, labelColour(ctx).getValue(), "hex label");
+            typeInChat(ctx, "/imgprev colour image orange");
+            assertEquals("Image labels are now [⧈ Orange]", lastChat(ctx), "preset name");
+            typeInChat(ctx, "/imgprev colour gif rainbow");
+            assertTrue(lastChat(ctx).startsWith("Use a chat colour"), "bad colour refused: " + lastChat(ctx));
+            typeInChat(ctx, "/imgprev colour reset");
+            assertTrue(lastChat(ctx).startsWith("Label colours reset: [▶ GIF] [⧈ Image]"), "reset: " + lastChat(ctx));
+            assertEquals("aqua", ImgPrevConfig.load().labelColors.get("GIF"), "reset saved");
         }
+    }
+
+    /** Colour of the last segment of the newest chat line, where a label sits after {@link #system}. */
+    static TextColor labelColour(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            TextColor[] last = {null};
+            lastChatLine(mc).visit((style, text) -> { last[0] = style.getColor(); return Optional.empty(); }, Style.EMPTY);
+            return last[0];
+        });
     }
 
     static void system(ClientGameTestContext ctx, String text) {

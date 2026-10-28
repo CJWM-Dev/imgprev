@@ -72,13 +72,13 @@ public final class SendingClientGameTest implements FabricClientGameTest {
             typeInChat(ctx, "/imgprev autoconvert on");
             typeInChat(ctx, "look " + GIPHY + "!");
             ctx.waitFor(mc -> lastChat(mc).startsWith("<Player0> look"));
-            assertEquals("<Player0> look [🖼 GIF]!", lastChat(ctx), "converted chat");
+            assertEquals("<Player0> look [▶ GIF]!", lastChat(ctx), "converted chat");
             ctx.takeScreenshot("autoconvert-chat");
 
             // Chat-like commands on the list (msg is a default) are converted too.
             typeInChat(ctx, "/msg Player0 see " + GIPHY);
             ctx.waitFor(mc -> lastChat(mc).contains("whisper"));
-            assertTrue(lastChat(ctx).endsWith(": see [🖼 GIF]"), "converted command: " + lastChat(ctx));
+            assertTrue(lastChat(ctx).endsWith(": see [▶ GIF]"), "converted command: " + lastChat(ctx));
 
             // A message that can't be converted isn't sent; it goes back in the chat box.
             typeInChat(ctx, "hey " + KLIPY_PAGE);

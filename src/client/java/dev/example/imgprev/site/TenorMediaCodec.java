@@ -29,6 +29,7 @@ final class TenorMediaCodec implements SiteCodec {
 
     public char code() { return 't'; }
     public String name() { return "tenor"; }
+    public String title() { return "Tenor"; }
     public String label() { return "GIF"; }
     public Set<String> acceptedHosts() { return HOSTS; }
     public Pattern payloadPattern() { return KEY; }

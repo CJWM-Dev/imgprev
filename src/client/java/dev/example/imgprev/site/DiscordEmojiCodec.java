@@ -19,6 +19,7 @@ final class DiscordEmojiCodec implements SiteCodec {
 
     public char code() { return 'e'; }
     public String name() { return "emoji"; }
+    public String title() { return "Discord emoji"; }
     public String label() { return "Emoji"; }
     public Set<String> acceptedHosts() { return HOSTS; }
     public Pattern payloadPattern() { return P; }

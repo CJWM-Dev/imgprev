@@ -37,6 +37,7 @@ final class DiscordAttachmentCodec implements SiteCodec {
 
     public char code() { return 'd'; }
     public String name() { return "discord"; }
+    public String title() { return "Discord attachments"; }
     public String label() { return "Discord"; }
     public Set<String> acceptedHosts() { return HOSTS; }
     public Set<String> allowedDownloadHosts() { return HOSTS; }

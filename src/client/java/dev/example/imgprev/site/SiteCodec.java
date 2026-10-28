@@ -10,6 +10,7 @@ import java.util.regex.Pattern;
 public interface SiteCodec {
     char code();
     String name();                                      // for commands, e.g. "giphy"
+    String title();                                     // for people, e.g. "Giphy"
     String label();                                     // shown in chat, e.g. "GIF", "Image", "Discord"
     Set<String> acceptedHosts();                        // sender side, exact match
     Pattern payloadPattern();

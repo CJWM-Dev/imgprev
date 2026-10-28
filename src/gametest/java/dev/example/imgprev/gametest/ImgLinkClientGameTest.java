@@ -34,7 +34,7 @@ public final class ImgLinkClientGameTest implements FabricClientGameTest {
             setClipboard(ctx, "  " + URL + "\n");
             typeInChat(ctx, "/imglink");
             assertEquals(token, clipboard(ctx), "clipboard after /imglink");
-            assertEquals("Image token copied: [🖼 GIF]", lastChat(ctx), "feedback message (its token is shown as a label)");
+            assertEquals("Image token copied: [▶ GIF]", lastChat(ctx), "feedback message (its token is shown as a label)");
             ctx.takeScreenshot("imglink-copied");
 
             // /imglink chat: a fresh chat screen pre-filled with the token; clipboard untouched.

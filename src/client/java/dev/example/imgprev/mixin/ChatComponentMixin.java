@@ -2,6 +2,7 @@ package dev.example.imgprev.mixin;
 
 import dev.example.imgprev.ImgPrevClient;
 import dev.example.imgprev.chat.TokenStyler;
+import dev.example.imgprev.config.ImgPrevConfig;
 import net.minecraft.client.gui.components.ChatComponent;
 import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
@@ -17,6 +18,7 @@ abstract class ChatComponentMixin {
     @ModifyVariable(method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageSource;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",
                     at = @At("HEAD"), argsOnly = true, ordinal = 0)
     private Component imgprev$styleTokens(Component contents) {
-        return ImgPrevClient.CONFIG.renderEnabled ? TokenStyler.apply(contents, ImgPrevClient.CONFIG::allows) : contents;
+        ImgPrevConfig cfg = ImgPrevClient.CONFIG;
+        return cfg.renderEnabled ? TokenStyler.apply(contents, cfg::allows, cfg::labelColor) : contents;
     }
 }

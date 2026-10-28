@@ -17,6 +17,7 @@ final class ImgurCodec implements SiteCodec {
 
     public char code() { return 'i'; }
     public String name() { return "imgur"; }
+    public String title() { return "Imgur"; }
     public String label() { return "Image"; }
     public Set<String> acceptedHosts() { return HOSTS; }
     public Pattern payloadPattern() { return P; }

@@ -32,7 +32,7 @@ public final class ChatPreviewClientGameTest implements FabricClientGameTest {
     // Tenor answers 404 for unknown keys; full-size Giphy GIFs answer 200 with a "content not available" GIF instead.
     static final String MISSING = TokenCodec.encode("https://media.tenor.com/ZZZZZnotreal0AAAAC/x.gif").orElseThrow();
     static final String EXPIRED = TokenCodec.encode("https://cdn.discordapp.com/attachments/1100000000000000001/1300000000000000002/cat.png"
-        + "?ex=00000001&is=00000000&hm=" + "ab".repeat(32) + "&").orElseThrow();
+        + "?ex=66b847f9&is=66b6f679&hm=" + "ab".repeat(32) + "&").orElseThrow();   // signed August 2024, long expired
 
     @Override public void runTest(ClientGameTestContext ctx) {
         try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
@@ -41,12 +41,12 @@ public final class ChatPreviewClientGameTest implements FabricClientGameTest {
             // --- Chat labels ---
             // Server system message (how Hypixel sends most chat).
             ctx.runOnClient(mc -> mc.gui.hud.getChat().addServerSystemMessage(Component.literal("[VIP] Steve: look " + GIF + " and " + IMG)));
-            assertEquals("[VIP] Steve: look [🖼 GIF] and [🖼 Image]", lastChat(ctx), "system message");
+            assertEquals("[VIP] Steve: look [▶ GIF] and [⧈ Image]", lastChat(ctx), "system message");
 
             // Player chat round-trips through the integrated server.
             typeInChat(ctx, "check " + GIF);
             ctx.waitFor(mc -> lastChat(mc).contains("check"));
-            assertEquals("<Player0> check [🖼 GIF]", lastChat(ctx), "player chat");
+            assertEquals("<Player0> check [▶ GIF]", lastChat(ctx), "player chat");
             ctx.takeScreenshot("chat-labels");
 
             // --- Hover previews ---

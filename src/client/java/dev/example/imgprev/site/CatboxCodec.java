@@ -20,6 +20,7 @@ final class CatboxCodec implements SiteCodec {
 
     public char code() { return 'c'; }
     public String name() { return "catbox"; }
+    public String title() { return "Catbox"; }
     public String label() { return "Image"; }
     public Set<String> acceptedHosts() { return HOSTS; }
     public Pattern payloadPattern() { return P; }
