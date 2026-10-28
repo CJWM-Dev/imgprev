@@ -36,7 +36,7 @@ public final class TokenVectors {
         for (String url : REFUSED) out.add(row(url));
         Path file = Path.of(args[0]);
         Files.createDirectories(file.toAbsolutePath().getParent());
-        Files.write(file, out, StandardCharsets.UTF_8);
+        Files.writeString(file, String.join("\n", out) + "\n", StandardCharsets.UTF_8);   // "\n" on every OS, so the file diffs cleanly
         System.out.println(out.size() + " vectors written to " + file.toAbsolutePath());
     }
 
@@ -46,7 +46,9 @@ public final class TokenVectors {
         ResolvedMedia m = TokenCodec.decode(token.get()).orElseThrow();
         SiteCodec c = m.codec();
         String body = "1" + c.code() + m.payload();
-        String v1 = m.payload().length() <= TokenCodec.MAX_PAYLOAD ? "<~" + body + TokenCodec.check(body) + "~>" : "";
+        // Only where v1 could carry the payload: it has no room for '_' (some Tenor keys) or payloads over 200 characters.
+        String v1 = "<~" + body + TokenCodec.check(body) + "~>";
+        if (TokenCodec.decode(v1).isEmpty()) v1 = "";
         String expires = c.expiresAtEpochSec(m.payload()).isPresent() ? String.valueOf(c.expiresAtEpochSec(m.payload()).getAsLong()) : "";
         return String.join("\t", url, token.get(), v1, c.name(), c.mediaUri(m.payload()).toString(), expires);
     }
