@@ -1,9 +1,10 @@
 package dev.example.imgprev.config;
 
-import dev.example.imgprev.chat.TokenStyler;
+import dev.example.imgprev.site.Label;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 import me.shedaniel.clothconfig2.gui.entries.TooltipListEntry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -25,8 +26,10 @@ import net.minecraft.network.chat.TextColor;
 final class LabelColourEntry extends TooltipListEntry<String> {
     static final int CELL = 14, SWATCH = 12, COLUMNS = 6, PAD = 3;
     static final List<TextColor> PRESETS = ImgPrevConfig.PRESET_COLORS;
+    static final Pattern HEX = Pattern.compile("#?[0-9a-fA-F]{6}");
 
-    private final String label, original, defaultPreset;
+    private final Label label;
+    private final String original, defaultPreset;
     private final EditBox hex;
     private final Button presetButton, reset;
     private String preset;
@@ -34,8 +37,8 @@ final class LabelColourEntry extends TooltipListEntry<String> {
     private int popupX, popupY;
 
     /** {@code current} and {@code defaultPreset} are saved forms such as "aqua" or "#FF8800". */
-    LabelColourEntry(String label, String current, String defaultPreset, Consumer<String> save) {
-        super(Component.literal(TokenStyler.labelText(label)), () -> Optional.of(new Component[] {
+    LabelColourEntry(Label label, String current, String defaultPreset, Consumer<String> save) {
+        super(Component.literal(label.labelText()), () -> Optional.of(new Component[] {
             Component.literal("Type a hex colour such as #FF8800, or pick a preset with the button."),
             Component.literal("A hex colour takes priority; picking a preset clears it.")}));
         Font font = Minecraft.getInstance().font;
@@ -59,8 +62,11 @@ final class LabelColourEntry extends TooltipListEntry<String> {
     /** The typed colour, when the box holds a whole hex colour. */
     Optional<TextColor> typed() {
         String s = hex.getValue().strip();
-        return s.matches("#?[0-9a-fA-F]{6}") ? ImgPrevConfig.parseColor(s) : Optional.empty();
+        return HEX.matcher(s).matches() ? ImgPrevConfig.parseColor(s) : Optional.empty();
     }
+
+    /** Something typed that isn't a whole hex colour. */
+    boolean badHex() { return !hex.getValue().isBlank() && typed().isEmpty(); }
 
     TextColor colour() { return typed().orElseGet(() -> ImgPrevConfig.parseColor(preset).orElse(TextColor.WHITE)); }
 
@@ -69,8 +75,7 @@ final class LabelColourEntry extends TooltipListEntry<String> {
     @Override public boolean isEdited() { return super.isEdited() || !getValue().equals(original); }
 
     @Override public Optional<Component> getError() {
-        boolean bad = !hex.getValue().isBlank() && typed().isEmpty();
-        return bad ? Optional.of(Component.literal(label + ": hex colours look like #FF8800")) : super.getError();
+        return badHex() ? Optional.of(Component.literal(label.text() + ": hex colours look like #FF8800")) : super.getError();
     }
 
     @Override public List<? extends GuiEventListener> children() { return List.of(hex, presetButton, reset); }
@@ -84,7 +89,7 @@ final class LabelColourEntry extends TooltipListEntry<String> {
         TextColor colour = colour();
         boolean overridden = typed().isPresent();
 
-        g.text(font, Component.literal(TokenStyler.labelText(label)).withStyle(s -> s.withColor(colour)), x, y + 6, 0xFFFFFFFF);
+        g.text(font, Component.literal(label.labelText()).withStyle(s -> s.withColor(colour)), x, y + 6, 0xFFFFFFFF);
 
         reset.setX(x + entryWidth - reset.getWidth());
         reset.setY(y);
@@ -95,8 +100,7 @@ final class LabelColourEntry extends TooltipListEntry<String> {
         hex.setY(y + 1);
         hex.setWidth(presetButton.getX() - 3 - hex.getX());
         hex.setEditable(isEditable());
-        boolean bad = !hex.getValue().isBlank() && !overridden;
-        hex.setTextColor(bad ? 0xFFFF5555 : 0xFF000000 | colour.getValue());
+        hex.setTextColor(badHex() ? 0xFFFF5555 : 0xFF000000 | colour.getValue());
 
         hex.extractRenderState(g, mouseX, mouseY, delta);
         presetButton.extractRenderState(g, mouseX, mouseY, delta);

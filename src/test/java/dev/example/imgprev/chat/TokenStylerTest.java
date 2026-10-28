@@ -1,16 +1,19 @@
 package dev.example.imgprev.chat;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
+import dev.example.imgprev.site.Label;
 import dev.example.imgprev.site.SiteCodec;
 import dev.example.imgprev.site.SiteRegistry;
+import dev.example.imgprev.site.TestTokens;
 import dev.example.imgprev.token.TokenCodec;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.Optional;
+import java.util.Set;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
@@ -54,8 +57,7 @@ class TokenStylerTest {
     @Test void disallowedOrInvalidTokensStayAsText() {
         Component blocked = Component.literal("x " + GIF);
         assertSame(blocked, TokenStyler.apply(blocked, m -> false));
-        String badCheck = GIF.substring(0, GIF.length() - 3) + (GIF.charAt(GIF.length() - 3) == 'A' ? 'B' : 'A') + "~>";
-        Component invalid = Component.literal("y " + badCheck);
+        Component invalid = Component.literal("y " + TestTokens.withBadCheck(GIF));
         assertSame(invalid, TokenStyler.apply(invalid, m -> true));
     }
 
@@ -74,20 +76,23 @@ class TokenStylerTest {
     }
 
     @Test void eachKindOfLabelHasItsOwnSymbol() {
-        assertEquals("[▶ GIF]", TokenStyler.labelText("GIF"));
-        assertEquals("[⧈ Image]", TokenStyler.labelText("Image"));
-        assertEquals("[☺ Emoji]", TokenStyler.labelText("Emoji"));
-        assertEquals("[✉ Discord]", TokenStyler.labelText("Discord"));
-        Set<String> labels = new HashSet<>(), icons = new HashSet<>();
-        for (SiteCodec c : SiteRegistry.all()) { labels.add(c.label()); icons.add(TokenStyler.icon(c.label())); }
-        assertEquals(labels.size(), icons.size(), "one symbol per label " + labels);
+        assertEquals("[▶ GIF]", Label.GIF.labelText());
+        assertEquals("[⧈ Image]", Label.IMAGE.labelText());
+        assertEquals("[☺ Emoji]", Label.EMOJI.labelText());
+        assertEquals("[✉ Discord]", Label.DISCORD.labelText());
+        Set<String> icons = new HashSet<>();
+        for (Label l : Label.values()) icons.add(l.icon());
+        assertEquals(Label.values().length, icons.size(), "one symbol per label");
+        Set<Label> used = new HashSet<>();
+        for (SiteCodec c : SiteRegistry.all()) used.add(c.label());
+        assertEquals(Set.of(Label.values()), used, "every kind of label is used by some site");
     }
 
     @Test void eachKindOfLabelTakesItsOwnColour() {
         TextColor orange = TextColor.fromRgb(0xFF8800);
         List<Seg> segs = segments(TokenStyler.apply(Component.literal("see " + GIF + " and " + IMG), m -> true,
-            label -> label.equals("GIF") ? orange : TextColor.BLUE));
-        assertEquals(null, segs.getFirst().color(), "text around the labels keeps its own colour");
+            label -> label == Label.GIF ? orange : TextColor.BLUE));
+        assertNull(segs.getFirst().color(), "text around the labels keeps its own colour");
         assertEquals(orange, segs.get(1).color(), "GIF");
         assertEquals(TextColor.BLUE, segs.get(3).color(), "Image");
     }

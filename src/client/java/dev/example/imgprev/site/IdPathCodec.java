@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
  * and its extension (Postimages, ImgBB). Payload: the id. Their share pages, {@code {page}/{id}}, use a different
  * id, so {@link LinkConverter} looks up the page's {@code og:image} on the sender's side; viewers need nothing.
  */
-final class IdPathCodec implements SiteCodec {
+final class IdPathCodec extends BaseCodec {
     static final Pattern ID = Pattern.compile("[A-Za-z0-9]{6,12}");
     static final Pattern PATH = Pattern.compile("^/([A-Za-z0-9]{6,12})/[^/]+$");
     static final Pattern PAGE_PATH = Pattern.compile("^/([A-Za-z0-9]{6,12})/?$");
@@ -25,31 +25,29 @@ final class IdPathCodec implements SiteCodec {
     static final Pattern OG_IMAGE = Pattern.compile("<meta\\s+property=\"og:image\"\\s+content=\"([^\"]+)\"");
     static final int MAX_PAGE_BYTES = 1 << 20;
 
-    private final char code;
-    private final String name, title, cdn, page;
-    private final Set<String> hosts;
+    /** Fetches a share page's HTML; tests stand in for the network. */
+    @FunctionalInterface
+    interface PageFetcher { CompletableFuture<byte[]> fetch(URI page, Set<String> allowedHosts); }
+
+    static final PageFetcher NETWORK = (page, hosts) -> SafeHttp.get(page, hosts, MAX_PAGE_BYTES, "text/html");
+
+    private final String cdn, page;
 
     IdPathCodec(char code, String name, String title, String cdn, String page) {
-        this.code = code; this.name = name; this.title = title; this.cdn = cdn; this.page = page; this.hosts = Set.of(cdn);
+        super(code, name, title, Label.IMAGE, Set.of(cdn), Set.of(cdn));
+        this.cdn = cdn;
+        this.page = page;
     }
 
-    public char code() { return code; }
-    public String name() { return name; }
-    public String label() { return "Image"; }
-    public Set<String> acceptedHosts() { return hosts; }
-    public Pattern payloadPattern() { return ID; }
-    public Set<String> allowedDownloadHosts() { return hosts; }
-    public String title() { return title; }
+    @Override public Pattern payloadPattern() { return ID; }
 
-    public Optional<String> payloadFrom(URI u) {
+    @Override public Optional<String> payloadFrom(URI u) {
         Matcher m = PATH.matcher(u.getPath());
         return m.matches() ? Optional.of(m.group(1)) : Optional.empty();
     }
 
     /** Any filename works; the content type comes from the file itself. */
-    public CompletableFuture<URI> mediaUri(String id) {
-        return CompletableFuture.completedFuture(URI.create("https://" + cdn + "/" + id + "/image.png"));
-    }
+    @Override public URI mediaUri(String id) { return URI.create("https://" + cdn + "/" + id + "/image.png"); }
 
     /** The id of a share page link; {@code www.} and a trailing slash only redirect. */
     Optional<String> pageId(URI u) {
@@ -60,16 +58,15 @@ final class IdPathCodec implements SiteCodec {
     }
 
     /** The page's full-size CDN address. Failures are {@link MediaException}s that can be shown as-is. */
-    CompletableFuture<URI> lookUp(String pageId) {
+    CompletableFuture<URI> lookUp(String pageId, PageFetcher fetcher) {
         URI pageUri = URI.create("https://" + page + "/" + pageId);
-        return SafeHttp.get(pageUri, Set.of(page), MAX_PAGE_BYTES, "text/html").handle((body, err) -> {
+        return fetcher.fetch(pageUri, Set.of(page)).handle((body, err) -> {
             if (err != null) {
-                Throwable t = err instanceof CompletionException && err.getCause() != null ? err.getCause() : err;
-                throw new CompletionException(t instanceof SafeHttp.HttpStatusException e && e.status == 404
-                    ? new MediaException(title + " page not found") : new MediaException("Couldn't look up the " + title + " image"));
+                throw new CompletionException(SafeHttp.unwrap(err) instanceof SafeHttp.HttpStatusException e && e.status == 404
+                    ? new MediaException(title() + " page not found") : new MediaException("Couldn't look up the " + title() + " image"));
             }
             return ogImage(new String(body, StandardCharsets.UTF_8))
-                .orElseThrow(() -> new CompletionException(new MediaException("No image found on that " + title + " page")));
+                .orElseThrow(() -> new CompletionException(new MediaException("No image found on that " + title() + " page")));
         });
     }
 

@@ -57,7 +57,7 @@ public final class SafeHttp {
 
     public static final class HttpStatusException extends IOException {
         public final int status;
-        HttpStatusException(int status) { super("HTTP " + status); this.status = status; }
+        public HttpStatusException(int status) { super("HTTP " + status); this.status = status; }
     }
 
     /** Redirects are followed by hand and every hop must be HTTPS on {@code allowedHosts}. */

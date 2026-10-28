@@ -4,16 +4,26 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
 import dev.example.imgprev.ImgPrevClient;
+import dev.example.imgprev.site.Label;
+import dev.example.imgprev.site.SiteCodec;
+import dev.example.imgprev.site.SiteRegistry;
 import dev.example.imgprev.token.ResolvedMedia;
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.network.chat.TextColor;
 
@@ -36,11 +46,9 @@ public final class ImgPrevConfig {
     public boolean autoConvertLinks = false;
     /** Commands whose text is chat (Hypixel's party/guild/officer chat, private messages), converted like chat. */
     public List<String> autoConvertCommands = defaultCommands();
-    /** Colour of each kind of label ({@code GIF}, {@code Image}, …): a chat colour name such as {@code aqua}, or {@code #RRGGBB}. */
+    /** Colour of each kind of label, keyed by {@link Label#text}: a chat colour name such as {@code aqua}, or {@code #RRGGBB}. */
     public Map<String, String> labelColors = defaultLabelColors();
 
-    /** The kinds of label, in the order the settings screen and {@code /imgprev colour} offer them. */
-    public static final List<String> LABELS = List.of("GIF", "Image", "Emoji", "Discord");
     /** Minecraft's 16 chat colours, in the order the settings screen offers them. */
     public static final List<TextColor> CHAT_COLORS = List.of(TextColor.AQUA, TextColor.DARK_AQUA, TextColor.BLUE, TextColor.DARK_BLUE,
         TextColor.LIGHT_PURPLE, TextColor.DARK_PURPLE, TextColor.RED, TextColor.DARK_RED, TextColor.GOLD, TextColor.YELLOW,
@@ -49,6 +57,11 @@ public final class ImgPrevConfig {
     static final Map<String, Integer> EXTRA_COLORS = extraColors();
     /** Everything the settings screen offers in its colour lists: the chat colours, then the extras. */
     public static final List<TextColor> PRESET_COLORS = presetColors();
+
+    static final Pattern BARE_HEX = Pattern.compile("[0-9a-f]{6}"), COLOR = Pattern.compile("#[0-9a-f]{6}|[a-z_]+");
+    private static final Map<Label, TextColor> DEFAULT_COLORS = defaultColors();
+    /** Label colours as saved text → parsed, so chat lines don't re-parse them; only ever holds a handful. */
+    private static final Map<String, Optional<TextColor>> PARSED = new ConcurrentHashMap<>();
 
     private static Map<String, Integer> extraColors() {
         Map<String, Integer> m = new LinkedHashMap<>();
@@ -67,43 +80,56 @@ public final class ImgPrevConfig {
         return List.copyOf(all);
     }
 
+    private static Map<Label, TextColor> defaultColors() {
+        Map<Label, TextColor> m = new EnumMap<>(Label.class);
+        for (Label l : Label.values()) m.put(l, parseColor(l.defaultColor()).orElseThrow());
+        return m;
+    }
+
     static Map<String, Boolean> defaultSites() {
         Map<String, Boolean> m = new LinkedHashMap<>();
-        for (String code : new String[] {"g", "i", "t", "e", "d", "z", "y", "p", "b", "c"}) m.put(code, true);
+        for (SiteCodec c : SiteRegistry.all()) m.put(String.valueOf(c.code()), true);
         return m;
     }
 
-    /** Discord's is its older, lighter blurple, which reads better on chat's dark background than the current one. */
     public static Map<String, String> defaultLabelColors() {
         Map<String, String> m = new LinkedHashMap<>();
-        m.put("GIF", "aqua");
-        m.put("Image", "green");
-        m.put("Emoji", "yellow");
-        m.put("Discord", "#7289DA");
+        for (Label l : Label.values()) m.put(l.text(), l.defaultColor());
         return m;
     }
 
-    public static TextColor defaultLabelColor(String label) {
-        return parseColor(defaultLabelColors().getOrDefault(label, "aqua")).orElse(TextColor.AQUA);
-    }
+    public static TextColor defaultLabelColor(Label label) { return DEFAULT_COLORS.get(label); }
 
     static List<String> defaultCommands() { return new ArrayList<>(List.of("msg", "tell", "w", "r", "pc", "gc", "oc", "ac")); }
 
     public static Path path() { return FabricLoader.getInstance().getConfigDir().resolve("imgprev.json"); }
 
-    public static ImgPrevConfig load() {
-        Path p = path();
+    public static ImgPrevConfig load() { return load(path()); }
+
+    static ImgPrevConfig load(Path p) {
+        boolean exists = Files.exists(p);
         ImgPrevConfig cfg = null;
-        if (Files.exists(p)) {
+        if (exists) {
             try { cfg = GSON.fromJson(Files.readString(p), ImgPrevConfig.class); }
             catch (IOException | JsonParseException e) { ImgPrevClient.LOG.warn("Couldn't read {}, using defaults: {}", p, e.toString()); }
         }
-        boolean parsed = cfg != null, fresh = !parsed && !Files.exists(p);
+        boolean parsed = cfg != null;
         if (cfg == null) cfg = new ImgPrevConfig();
         boolean migrated = cfg.migrate();
         cfg.sanitize();
-        if (fresh || (parsed && migrated)) cfg.save();   // never overwrite a file we failed to parse
+        if (!exists || (parsed && migrated)) cfg.save(p);   // never overwrite a file we failed to parse
         return cfg;
+    }
+
+    /** Reads the file again into this object, so everything holding it (screens, lambdas) sees the new values. */
+    public void reload() { copyFrom(load()); }
+
+    void copyFrom(ImgPrevConfig other) {
+        try {
+            for (Field f : ImgPrevConfig.class.getDeclaredFields()) if (!Modifier.isStatic(f.getModifiers())) f.set(this, f.get(other));
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     /** 0.1.x's defaults were too small for most GIFs; files still on them move to the new ones, chosen values stay. */
@@ -115,9 +141,22 @@ public final class ImgPrevConfig {
         return true;
     }
 
-    public void save() {
-        try { Files.createDirectories(path().getParent()); Files.writeString(path(), GSON.toJson(this)); }
-        catch (IOException e) { ImgPrevClient.LOG.warn("Couldn't save {}: {}", path(), e.toString()); }
+    public void save() { save(path()); }
+
+    /** Written beside the file, then moved over it, so a crash mid-write never leaves half a file. */
+    void save(Path p) {
+        Path tmp = p.resolveSibling(p.getFileName() + ".tmp");
+        try {
+            Files.createDirectories(p.getParent());
+            Files.writeString(tmp, GSON.toJson(this));
+            try {
+                Files.move(tmp, p, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException e) {
+                Files.move(tmp, p, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException e) {
+            ImgPrevClient.LOG.warn("Couldn't save {}: {}", p, e.toString());
+        }
     }
 
     void sanitize() {
@@ -131,9 +170,9 @@ public final class ImgPrevConfig {
         autoConvertCommands.replaceAll(c -> c.strip().replaceFirst("^/", "").toLowerCase(Locale.ROOT));
         autoConvertCommands.removeIf(String::isEmpty);
         Map<String, String> colors = new LinkedHashMap<>();
-        for (String label : LABELS) {
-            String chosen = labelColors == null ? null : labelColors.get(label);
-            colors.put(label, (chosen == null ? Optional.<TextColor>empty() : parseColor(chosen)).orElse(defaultLabelColor(label)).serialize());
+        for (Label label : Label.values()) {
+            String chosen = labelColors == null ? null : labelColors.get(label.text());
+            colors.put(label.text(), (chosen == null ? Optional.<TextColor>empty() : parseColor(chosen)).orElse(defaultLabelColor(label)).serialize());
         }
         labelColors = colors;
     }
@@ -142,20 +181,26 @@ public final class ImgPrevConfig {
     public int maxDownloadBytes() { return (int) (maxDownloadMB * MB); }
 
     public boolean siteEnabled(char code) { return sites.getOrDefault(String.valueOf(code), true); }
+    public void setSiteEnabled(char code, boolean on) { sites.put(String.valueOf(code), on); }
     public boolean allows(ResolvedMedia m) { return siteEnabled(m.codec().code()); }
 
-    /** The colour for one kind of label, e.g. {@code "GIF"}. */
-    public TextColor labelColor(String label) {
-        String chosen = labelColors.get(label);
-        return (chosen == null ? Optional.<TextColor>empty() : parseColor(chosen)).orElse(defaultLabelColor(label));
+    /** The colour for one kind of label. */
+    public TextColor labelColor(Label label) {
+        String chosen = labelColors.get(label.text());
+        if (chosen == null) return defaultLabelColor(label);
+        if (PARSED.size() > 64) PARSED.clear();
+        return PARSED.computeIfAbsent(chosen, ImgPrevConfig::parseColor).orElse(defaultLabelColor(label));
     }
+
+    public void setLabelColor(Label label, TextColor color) { labelColors.put(label.text(), color.serialize()); }
 
     /** A chat colour or preset name ({@code dark_red}, {@code Sky Blue}) or a hex colour with or without {@code #}. */
     public static Optional<TextColor> parseColor(String s) {
         String c = s.strip().toLowerCase(Locale.ROOT).replace(' ', '_');
-        if (EXTRA_COLORS.containsKey(c)) return Optional.of(TextColor.fromRgb(EXTRA_COLORS.get(c)));
-        if (c.matches("[0-9a-f]{6}")) c = "#" + c;
-        return c.matches("#[0-9a-f]{6}|[a-z_]+") ? TextColor.parseColor(c).result() : Optional.empty();
+        Integer extra = EXTRA_COLORS.get(c);
+        if (extra != null) return Optional.of(TextColor.fromRgb(extra));
+        if (BARE_HEX.matcher(c).matches()) c = "#" + c;
+        return COLOR.matcher(c).matches() ? TextColor.parseColor(c).result() : Optional.empty();
     }
 
     /** "dark_aqua" → "Dark aqua", #FF8800 → "Orange"; other hex colours as they are. */

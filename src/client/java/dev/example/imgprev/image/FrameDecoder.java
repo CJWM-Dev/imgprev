@@ -17,6 +17,7 @@ import javax.imageio.metadata.IIOMetadataNode;
 import javax.imageio.spi.IIORegistry;
 import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.MemoryCacheImageInputStream;
+import org.jspecify.annotations.Nullable;
 
 /**
  * GIF/PNG/JPEG/WebP bytes → frames scaled to fit a {@code maxW × maxH} box. Runs off-thread.
@@ -281,12 +282,12 @@ public final class FrameDecoder {
         return dst;
     }
 
-    static IIOMetadataNode child(IIOMetadataNode parent, String name) {
+    static @Nullable IIOMetadataNode child(IIOMetadataNode parent, String name) {
         for (var n = parent.getFirstChild(); n != null; n = n.getNextSibling()) if (name.equals(n.getNodeName())) return (IIOMetadataNode) n;
         return null;
     }
 
-    static int intAttr(IIOMetadataNode node, String name) {
+    static int intAttr(@Nullable IIOMetadataNode node, String name) {
         if (node == null) return 0;
         try { return Integer.parseInt(node.getAttribute(name)); } catch (NumberFormatException e) { return 0; }
     }

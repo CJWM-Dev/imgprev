@@ -1,6 +1,7 @@
 package dev.example.imgprev.config;
 
 import dev.example.imgprev.ImgPrevClient;
+import dev.example.imgprev.site.Label;
 import dev.example.imgprev.site.SiteCodec;
 import dev.example.imgprev.site.SiteRegistry;
 import java.util.ArrayList;
@@ -39,9 +40,9 @@ public final class ConfigScreen {
         colours.addEntry(e.startTextDescription(text("Each kind of label has its own colour. Pick a preset with the swatch button, or type "
             + "your own hex colour such as #FF8800; a hex colour takes priority. Labels already in chat keep their colour."))
             .setColor(0xFFAAAAAA).build());
-        for (String label : ImgPrevConfig.LABELS) {
+        for (Label label : Label.values()) {
             colours.addEntry(new LabelColourEntry(label, cfg.labelColor(label).serialize(), ImgPrevConfig.defaultLabelColor(label).serialize(),
-                v -> cfg.labelColors.put(label, v)));
+                v -> cfg.labelColors.put(label.text(), v)));
         }
 
         ConfigCategory sending = builder.getOrCreateCategory(text("Sending"));
@@ -57,7 +58,7 @@ public final class ConfigScreen {
         for (SiteCodec c : SiteRegistry.all()) {
             sites.addEntry(e.startBooleanToggle(text(c.title()), cfg.siteEnabled(c.code())).setDefaultValue(defaults.siteEnabled(c.code()))
                 .setTooltip(text("Turn off to leave " + c.title() + " tokens as plain text"))
-                .setSaveConsumer(v -> cfg.sites.put(String.valueOf(c.code()), v)).build());
+                .setSaveConsumer(v -> cfg.setSiteEnabled(c.code(), v)).build());
         }
 
         ConfigCategory memory = builder.getOrCreateCategory(text("Memory & downloads"));
@@ -69,12 +70,16 @@ public final class ConfigScreen {
             .setTooltip(text("Bigger files show \"File too large\" instead of a preview"))
             .setSaveConsumer(v -> cfg.maxDownloadMB = v).build());
 
-        int oldBudget = cfg.cacheBudgetMB, oldDownload = cfg.maxDownloadMB, oldDraw = cfg.maxDrawPx;
+        // Cached previews were decoded for the limits in force when they loaded; compared against the last save, not the screen's opening.
+        int[] limits = {cfg.cacheBudgetMB, cfg.maxDownloadMB, cfg.maxDrawPx};
         builder.setSavingRunnable(() -> {
             cfg.sanitize();
             cfg.save();
-            // Cached previews were decoded for the old limits.
-            if (cfg.cacheBudgetMB != oldBudget || cfg.maxDownloadMB != oldDownload || cfg.maxDrawPx != oldDraw) ImgPrevClient.CACHE.clear();
+            int[] now = {cfg.cacheBudgetMB, cfg.maxDownloadMB, cfg.maxDrawPx};
+            if (!java.util.Arrays.equals(now, limits)) {
+                ImgPrevClient.CACHE.clear();
+                System.arraycopy(now, 0, limits, 0, now.length);
+            }
         });
         return builder.build();
     }

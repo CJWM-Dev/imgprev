@@ -5,8 +5,15 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.Gson;
+import dev.example.imgprev.site.Label;
+import dev.example.imgprev.site.SiteCodec;
+import dev.example.imgprev.site.SiteRegistry;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import net.minecraft.network.chat.TextColor;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class ImgPrevConfigTest {
     static ImgPrevConfig parse(String json) { return new Gson().fromJson(json, ImgPrevConfig.class); }
@@ -47,10 +54,10 @@ class ImgPrevConfigTest {
     @Test void eachKindOfLabelHasItsOwnDefault() {
         ImgPrevConfig cfg = parse("{}");
         cfg.sanitize();
-        assertEquals(TextColor.AQUA, cfg.labelColor("GIF"));
-        assertEquals(TextColor.GREEN, cfg.labelColor("Image"));
-        assertEquals(TextColor.YELLOW, cfg.labelColor("Emoji"));
-        assertEquals(0x7289DA, cfg.labelColor("Discord").getValue());
+        assertEquals(TextColor.AQUA, cfg.labelColor(Label.GIF));
+        assertEquals(TextColor.GREEN, cfg.labelColor(Label.IMAGE));
+        assertEquals(TextColor.YELLOW, cfg.labelColor(Label.EMOJI));
+        assertEquals(0x7289DA, cfg.labelColor(Label.DISCORD).getValue());
     }
 
     @Test void labelColoursAreSavedReadably() {
@@ -90,5 +97,75 @@ class ImgPrevConfigTest {
         ImgPrevConfig cfg = parse("{\"maxDownloadMB\": 1000}");
         cfg.sanitize();
         assertEquals(ImgPrevConfig.MAX_DOWNLOAD_MB, cfg.maxDownloadMB);
+    }
+
+    @Test void everySiteIsOnByDefault() {
+        ImgPrevConfig cfg = new ImgPrevConfig();
+        for (SiteCodec c : SiteRegistry.all()) assertTrue(cfg.sites.get(String.valueOf(c.code())), c.name());
+        assertEquals(SiteRegistry.all().size(), cfg.sites.size());
+    }
+
+    @Test void changedLabelColoursApplyStraightAway() {
+        ImgPrevConfig cfg = new ImgPrevConfig();
+        assertEquals(TextColor.AQUA, cfg.labelColor(Label.GIF));
+        cfg.setLabelColor(Label.GIF, TextColor.GOLD);
+        assertEquals(TextColor.GOLD, cfg.labelColor(Label.GIF));
+        cfg.labelColors.put("GIF", "rainbow");
+        assertEquals(TextColor.AQUA, cfg.labelColor(Label.GIF), "unreadable text falls back to the default");
+    }
+
+    // --- The file itself ---
+
+    @Test void aMissingFileIsCreated(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("sub/imgprev.json");
+        ImgPrevConfig cfg = ImgPrevConfig.load(file);
+        assertTrue(Files.exists(file));
+        assertEquals(ImgPrevConfig.VERSION, cfg.configVersion);
+        assertFalse(Files.exists(dir.resolve("sub/imgprev.json.tmp")), "no temporary file left behind");
+    }
+
+    @Test void anUnreadableFileIsNeverOverwritten(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("imgprev.json");
+        Files.writeString(file, "{ \"renderEnabled\": fals");   // a hand edit gone wrong
+        ImgPrevConfig cfg = ImgPrevConfig.load(file);
+        assertTrue(cfg.renderEnabled, "defaults are used");
+        assertEquals("{ \"renderEnabled\": fals", Files.readString(file), "the file is left for the player to fix");
+    }
+
+    @Test void oldFilesAreMigratedOnDisk(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("imgprev.json");
+        Files.writeString(file, "{\"maxDownloadMB\": 8}");
+        ImgPrevConfig.load(file);
+        assertEquals(32, ImgPrevConfig.load(file).maxDownloadMB);
+        assertTrue(Files.readString(file).contains("\"configVersion\": " + ImgPrevConfig.VERSION));
+    }
+
+    @Test void currentFilesAreNotRewritten(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("imgprev.json");
+        String json = "{\"configVersion\": " + ImgPrevConfig.VERSION + ", \"maxDrawPx\": 64}";
+        Files.writeString(file, json);
+        assertEquals(64, ImgPrevConfig.load(file).maxDrawPx);
+        assertEquals(json, Files.readString(file));
+    }
+
+    @Test void savingReplacesTheWholeFile(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("imgprev.json");
+        Files.writeString(file, "x".repeat(10_000));
+        ImgPrevConfig cfg = new ImgPrevConfig();
+        cfg.maxDrawPx = 99;
+        cfg.save(file);
+        assertEquals(99, ImgPrevConfig.load(file).maxDrawPx);
+        assertFalse(Files.readString(file).contains("xxx"));
+    }
+
+    @Test void reloadingKeepsTheSameObject() {
+        ImgPrevConfig held = new ImgPrevConfig(), fresh = new ImgPrevConfig();
+        fresh.maxDrawPx = 64;
+        fresh.autoConvertLinks = true;
+        fresh.setLabelColor(Label.EMOJI, TextColor.RED);
+        held.copyFrom(fresh);
+        assertEquals(64, held.maxDrawPx);
+        assertTrue(held.autoConvertLinks);
+        assertEquals(TextColor.RED, held.labelColor(Label.EMOJI));
     }
 }

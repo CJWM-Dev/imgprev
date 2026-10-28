@@ -7,26 +7,20 @@ import java.net.URI;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Payload: ext code {@code p|j|g} + Base62(32-hex id); page links without an extension assume png. */
-final class GyazoCodec implements SiteCodec {
-    static final Pattern PATH = Pattern.compile("^/([0-9a-f]{32})(?:\\.(png|jpe?g|gif))?$", Pattern.CASE_INSENSITIVE);
+final class GyazoCodec extends BaseCodec {
+    static final Pattern PATH = Pattern.compile("^/([0-9a-fA-F]{32})(?:\\.(?i:(png|jpe?g|gif)))?$");
     static final Pattern P = Pattern.compile("[pjg][0-9A-Za-z]{1,22}");
     static final String EXT = "pjg";
-    private static final Set<String> HOSTS = Set.of("gyazo.com", "i.gyazo.com");
-    private static final Set<String> DOWNLOAD = Set.of("i.gyazo.com");
 
-    public char code() { return 'z'; }
-    public String name() { return "gyazo"; }
-    public String title() { return "Gyazo"; }
-    public String label() { return "Image"; }
-    public Set<String> acceptedHosts() { return HOSTS; }
-    public Pattern payloadPattern() { return P; }
+    GyazoCodec() { super('z', "gyazo", "Gyazo", Label.IMAGE, Set.of("gyazo.com", "i.gyazo.com"), Set.of("i.gyazo.com")); }
 
-    public Optional<String> payloadFrom(URI u) {
+    @Override public Pattern payloadPattern() { return P; }
+
+    @Override public Optional<String> payloadFrom(URI u) {
         Matcher m = PATH.matcher(u.getPath());
         if (!m.matches()) return Optional.empty();
         String ext = m.group(2) == null ? "png" : m.group(2).toLowerCase(Locale.ROOT);
@@ -47,12 +41,10 @@ final class GyazoCodec implements SiteCodec {
         });
     }
 
-    public CompletableFuture<URI> mediaUri(String p) {
+    @Override public URI mediaUri(String p) {
         String hex = Base62.decode(p.substring(1)).toString(16);
-        if (hex.length() > 32) return CompletableFuture.failedFuture(new IllegalArgumentException("id"));
+        if (hex.length() > 32) throw new IllegalArgumentException("id");
         String ext = switch (p.charAt(0)) { case 'j' -> "jpg"; case 'g' -> "gif"; default -> "png"; };
-        return CompletableFuture.completedFuture(URI.create("https://i.gyazo.com/" + Base62.leftPad(hex, 32) + "." + ext));
+        return URI.create("https://i.gyazo.com/" + Base62.leftPad(hex, 32) + "." + ext);
     }
-
-    public Set<String> allowedDownloadHosts() { return DOWNLOAD; }
 }

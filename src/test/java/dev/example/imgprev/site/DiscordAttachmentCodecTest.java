@@ -5,6 +5,7 @@ import static dev.example.imgprev.site.TestTokens.media;
 import static dev.example.imgprev.site.TestTokens.rebuilt;
 import static dev.example.imgprev.site.TestTokens.token;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.example.imgprev.token.TokenCodec;
@@ -52,13 +53,13 @@ class DiscordAttachmentCodecTest {
         String good = media(signed("image.png")).payload();
         String crafted = good.substring(0, good.lastIndexOf('-') + 1) + DiscordAttachmentCodec.nameEnc(name);
         assertTrue(CODEC.payloadPattern().matcher(crafted).matches());
-        assertTrue(CODEC.mediaUri(crafted).isCompletedExceptionally(), name);
+        assertThrows(IllegalArgumentException.class, () -> CODEC.mediaUri(crafted), name);
     }
 
     @Test void craftedOversizeFieldFails() {
         String[] f = media(signed("image.png")).payload().split("-");
         f[2] = "zzzzzzzzzz";   // ex far beyond 8 hex digits
-        assertTrue(CODEC.mediaUri(String.join("-", f)).isCompletedExceptionally());
+        assertThrows(IllegalArgumentException.class, () -> CODEC.mediaUri(String.join("-", f)));
     }
 
     @Test void unsignedOrMalformedQueryRejected() {
@@ -74,6 +75,13 @@ class DiscordAttachmentCodecTest {
     @Test void expiryComesFromEx() {
         var m = media(signed("image.png"));
         assertEquals(Long.parseLong(EX, 16), m.codec().expiresAtEpochSec(m.payload()).orElseThrow());
+    }
+
+    @Test void expiredLinksSaySo() {
+        assertEquals("Discord link expired", CODEC.expiredMessage());
+        assertEquals("Discord link expired", CODEC.statusMessage(403).orElseThrow());
+        assertEquals("Discord link expired", CODEC.statusMessage(404).orElseThrow());
+        assertTrue(CODEC.statusMessage(500).isEmpty());
     }
 
     @Test void tokenFitsInOneChatMessage() {

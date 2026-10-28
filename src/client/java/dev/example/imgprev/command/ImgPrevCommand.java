@@ -3,10 +3,11 @@ package dev.example.imgprev.command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.tree.LiteralCommandNode;
 import dev.example.imgprev.ImgPrevClient;
-import dev.example.imgprev.chat.TokenStyler;
 import dev.example.imgprev.config.ConfigScreen;
 import dev.example.imgprev.config.ImgPrevConfig;
+import dev.example.imgprev.site.Label;
 import dev.example.imgprev.site.SiteCodec;
 import dev.example.imgprev.site.SiteRegistry;
 import java.util.Locale;
@@ -34,33 +35,34 @@ public final class ImgPrevCommand {
         LiteralArgumentBuilder<FabricClientCommandSource> site = ClientCommands.literal("site");
         for (SiteCodec c : SiteRegistry.all()) {
             site.then(ClientCommands.literal(c.name())
-                .then(toggle("on", (src, cfg) -> setSite(src, cfg, c, true)))
-                .then(toggle("off", (src, cfg) -> setSite(src, cfg, c, false))));
+                .then(editing("on", (src, cfg) -> setSite(src, cfg, c, true)))
+                .then(editing("off", (src, cfg) -> setSite(src, cfg, c, false))));
         }
+        LiteralCommandNode<FabricClientCommandSource> colour = colour().build();
         d.register(ClientCommands.literal("imgprev")
             .requires(FabricClientCommandSource::attended)
             .executes(c -> status(c.getSource()))
             .then(ClientCommands.literal("settings").executes(c -> openSettings(c.getSource())))
-            .then(colour("colour"))
-            .then(colour("color"))
-            .then(toggle("on", (src, cfg) -> { cfg.renderEnabled = true; src.sendFeedback(ok("Image previews on")); }))
-            .then(toggle("off", (src, cfg) -> { cfg.renderEnabled = false; src.sendFeedback(ok("Image previews off")); }))
+            .then(colour)
+            .then(ClientCommands.literal("color").redirect(colour))
+            .then(editing("on", (src, cfg) -> { cfg.renderEnabled = true; src.sendFeedback(Component.literal("Image previews on")); }))
+            .then(editing("off", (src, cfg) -> { cfg.renderEnabled = false; src.sendFeedback(Component.literal("Image previews off")); }))
             .then(ClientCommands.literal("shift")
-                .then(toggle("on", (src, cfg) -> { cfg.requireShift = true; src.sendFeedback(ok("Previews need Shift held")); }))
-                .then(toggle("off", (src, cfg) -> { cfg.requireShift = false; src.sendFeedback(ok("Previews show on hover")); })))
+                .then(editing("on", (src, cfg) -> { cfg.requireShift = true; src.sendFeedback(Component.literal("Previews need Shift held")); }))
+                .then(editing("off", (src, cfg) -> { cfg.requireShift = false; src.sendFeedback(Component.literal("Previews show on hover")); })))
             .then(ClientCommands.literal("autoconvert")
-                .then(toggle("on", (src, cfg) -> { cfg.autoConvertLinks = true; src.sendFeedback(ok("Image links in messages you send become tokens")); }))
-                .then(toggle("off", (src, cfg) -> { cfg.autoConvertLinks = false; src.sendFeedback(ok("Links are sent as typed")); })))
+                .then(editing("on", (src, cfg) -> { cfg.autoConvertLinks = true; src.sendFeedback(Component.literal("Image links in messages you send become tokens")); }))
+                .then(editing("off", (src, cfg) -> { cfg.autoConvertLinks = false; src.sendFeedback(Component.literal("Links are sent as typed")); })))
             .then(site)
             .then(ClientCommands.literal("cache").then(ClientCommands.literal("clear").executes(c -> {
                 ImgPrevClient.CACHE.clear();
-                c.getSource().sendFeedback(ok("Preview cache cleared"));
+                c.getSource().sendFeedback(Component.literal("Preview cache cleared"));
                 return 1;
             })))
             .then(ClientCommands.literal("reload").executes(c -> {
-                ImgPrevClient.CONFIG = ImgPrevConfig.load();
+                ImgPrevClient.CONFIG.reload();
                 ImgPrevClient.CACHE.clear();   // size limits may have changed
-                c.getSource().sendFeedback(ok("Reloaded " + ImgPrevConfig.path().getFileName()));
+                c.getSource().sendFeedback(Component.literal("Reloaded " + ImgPrevConfig.path().getFileName()));
                 return 1;
             })));
     }
@@ -76,15 +78,15 @@ public final class ImgPrevCommand {
         return 1;
     }
 
-    /** {@code /imgprev colour <gif|image|emoji|discord> <name|#RRGGBB>} and {@code /imgprev colour reset}; "color" is the same command. */
-    private static LiteralArgumentBuilder<FabricClientCommandSource> colour(String name) {
-        LiteralArgumentBuilder<FabricClientCommandSource> root = ClientCommands.literal(name)
-            .then(toggle("reset", (src, cfg) -> {
+    /** {@code /imgprev colour <gif|image|emoji|discord> <name|#RRGGBB>} and {@code /imgprev colour reset}; "color" redirects here. */
+    private static LiteralArgumentBuilder<FabricClientCommandSource> colour() {
+        LiteralArgumentBuilder<FabricClientCommandSource> root = ClientCommands.literal("colour")
+            .then(editing("reset", (src, cfg) -> {
                 cfg.labelColors = ImgPrevConfig.defaultLabelColors();
                 src.sendFeedback(Component.literal("Label colours reset:").append(allLabels(cfg)));
             }));
-        for (String label : ImgPrevConfig.LABELS) {
-            root.then(ClientCommands.literal(label.toLowerCase(Locale.ROOT)).then(ClientCommands.argument("colour", StringArgumentType.greedyString())
+        for (Label label : Label.values()) {
+            root.then(ClientCommands.literal(label.text().toLowerCase(Locale.ROOT)).then(ClientCommands.argument("colour", StringArgumentType.greedyString())
                 .suggests((c, b) -> SharedSuggestionProvider.suggest(ImgPrevConfig.PRESET_COLORS.stream()
                     .map(p -> ImgPrevConfig.colorName(p).toLowerCase(Locale.ROOT).replace(' ', '_')), b))
                 .executes(c -> {
@@ -94,9 +96,9 @@ public final class ImgPrevCommand {
                         src.sendError(Component.literal("Use a chat colour such as aqua or gold, or a hex colour like #FF8800"));
                         return 0;
                     }
-                    ImgPrevClient.CONFIG.labelColors.put(label, colour.get().serialize());
+                    ImgPrevClient.CONFIG.setLabelColor(label, colour.get());
                     ImgPrevClient.CONFIG.save();
-                    src.sendFeedback(Component.literal(label + " labels are now ").append(swatch(label, colour.get())));
+                    src.sendFeedback(Component.literal(label.text() + " labels are now ").append(swatch(label, colour.get())));
                     return 1;
                 })));
         }
@@ -104,22 +106,22 @@ public final class ImgPrevCommand {
     }
 
     /** "[▶ Gold]" in that colour. */
-    static Component swatch(String label, TextColor c) {
-        return Component.literal("[" + TokenStyler.icon(label) + " " + ImgPrevConfig.colorName(c) + "]").withStyle(s -> s.withColor(c));
+    static Component swatch(Label label, TextColor c) {
+        return Component.literal("[" + label.icon() + " " + ImgPrevConfig.colorName(c) + "]").withStyle(s -> s.withColor(c));
     }
 
     /** " [▶ GIF] [⧈ Image] [☺ Emoji] [✉ Discord]", each in its colour. */
     static Component allLabels(ImgPrevConfig cfg) {
         MutableComponent out = Component.empty();
-        for (String label : ImgPrevConfig.LABELS) {
+        for (Label label : Label.values()) {
             TextColor c = cfg.labelColor(label);
-            out.append(Component.literal(" ")).append(Component.literal(TokenStyler.labelText(label)).withStyle(s -> s.withColor(c)));
+            out.append(Component.literal(" ")).append(Component.literal(label.labelText()).withStyle(s -> s.withColor(c)));
         }
         return out;
     }
 
     /** A literal that edits the config, then saves it. */
-    private static LiteralArgumentBuilder<FabricClientCommandSource> toggle(String name, BiConsumer<FabricClientCommandSource, ImgPrevConfig> edit) {
+    private static LiteralArgumentBuilder<FabricClientCommandSource> editing(String name, BiConsumer<FabricClientCommandSource, ImgPrevConfig> edit) {
         return ClientCommands.literal(name).executes(c -> {
             edit.accept(c.getSource(), ImgPrevClient.CONFIG);
             ImgPrevClient.CONFIG.save();
@@ -128,8 +130,8 @@ public final class ImgPrevCommand {
     }
 
     private static void setSite(FabricClientCommandSource src, ImgPrevConfig cfg, SiteCodec c, boolean on) {
-        cfg.sites.put(String.valueOf(c.code()), on);
-        src.sendFeedback(ok(c.name() + " previews " + (on ? "on" : "off")));
+        cfg.setSiteEnabled(c.code(), on);
+        src.sendFeedback(Component.literal(c.name() + " previews " + (on ? "on" : "off")));
     }
 
     private static int status(FabricClientCommandSource src) {
@@ -148,6 +150,4 @@ public final class ImgPrevCommand {
             .withStyle(ChatFormatting.GRAY));
         return 1;
     }
-
-    private static Component ok(String message) { return Component.literal(message); }
 }

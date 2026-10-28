@@ -3,25 +3,21 @@ package dev.example.imgprev.site;
 import java.net.URI;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-final class GiphyCodec implements SiteCodec {
+final class GiphyCodec extends BaseCodec {
     static final Pattern ID = Pattern.compile("[A-Za-z0-9]{5,40}");
     static final Pattern SHORT = Pattern.compile("([A-Za-z0-9]{5,40})\\.(?i:gif|webp)");
-    private static final Set<String> HOSTS = Set.of("giphy.com", "i.giphy.com", "media.giphy.com",
-        "media0.giphy.com", "media1.giphy.com", "media2.giphy.com", "media3.giphy.com", "media4.giphy.com");
-    private static final Set<String> DOWNLOAD = Set.of("i.giphy.com");
 
-    public char code() { return 'g'; }
-    public String name() { return "giphy"; }
-    public String title() { return "Giphy"; }
-    public String label() { return "GIF"; }
-    public Set<String> acceptedHosts() { return HOSTS; }
-    public Pattern payloadPattern() { return ID; }
+    GiphyCodec() {
+        super('g', "giphy", "Giphy", Label.GIF, Set.of("giphy.com", "i.giphy.com", "media.giphy.com",
+            "media0.giphy.com", "media1.giphy.com", "media2.giphy.com", "media3.giphy.com", "media4.giphy.com"), Set.of("i.giphy.com"));
+    }
 
-    public Optional<String> payloadFrom(URI u) {
+    @Override public Pattern payloadPattern() { return ID; }
+
+    @Override public Optional<String> payloadFrom(URI u) {
         String[] seg = u.getPath().split("/");
         // i.giphy.com/{id}.gif
         if (u.getHost().equalsIgnoreCase("i.giphy.com") && seg.length == 2) {
@@ -42,9 +38,5 @@ final class GiphyCodec implements SiteCodec {
     }
 
     /** The original upload (usually 480 px wide); {@code 200.gif} is only 200 px tall. */
-    public CompletableFuture<URI> mediaUri(String id) {
-        return CompletableFuture.completedFuture(URI.create("https://i.giphy.com/media/" + id + "/giphy.gif"));
-    }
-
-    public Set<String> allowedDownloadHosts() { return DOWNLOAD; }
+    @Override public URI mediaUri(String id) { return URI.create("https://i.giphy.com/media/" + id + "/giphy.gif"); }
 }

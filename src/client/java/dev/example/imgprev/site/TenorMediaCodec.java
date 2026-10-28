@@ -7,7 +7,6 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -18,23 +17,20 @@ import java.util.regex.Pattern;
  * A media key is base64url of 12 bytes: an 8-byte post id, then a 4-byte rendition code (2 = full-size GIF, 12 =
  * medium GIF, …). Senders' keys are rewritten to the full-size GIF, so a token carries just the post id.
  */
-final class TenorMediaCodec implements SiteCodec {
+final class TenorMediaCodec extends BaseCodec {
     static final Pattern KEY = Pattern.compile("[A-Za-z0-9_-]{8,32}");
-    static final Pattern PATH = Pattern.compile("^(?:/m)?/([A-Za-z0-9_-]{8,32})/[^/]+\\.gif$", Pattern.CASE_INSENSITIVE);
+    static final Pattern PATH = Pattern.compile("^(?i:/m)?/([A-Za-z0-9_-]{8,32})/[^/]+\\.(?i:gif)$");
     static final String KEY_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-    private static final Set<String> HOSTS = Set.of("media.tenor.com", "media1.tenor.com", "c.tenor.com");
-    private static final Set<String> DOWNLOAD = Set.of("media.tenor.com");
     /** Key endings that pick a rendition: the 220 px medium GIF and the full-size one. */
     static final String MEDIUM = "AAAAM", FULL = "AAAAC";
 
-    public char code() { return 't'; }
-    public String name() { return "tenor"; }
-    public String title() { return "Tenor"; }
-    public String label() { return "GIF"; }
-    public Set<String> acceptedHosts() { return HOSTS; }
-    public Pattern payloadPattern() { return KEY; }
+    TenorMediaCodec() {
+        super('t', "tenor", "Tenor", Label.GIF, Set.of("media.tenor.com", "media1.tenor.com", "c.tenor.com"), Set.of("media.tenor.com"));
+    }
 
-    public Optional<String> payloadFrom(URI u) {
+    @Override public Pattern payloadPattern() { return KEY; }
+
+    @Override public Optional<String> payloadFrom(URI u) {
         Matcher m = PATH.matcher(u.getPath());
         return m.matches() ? Optional.of(postId(m.group(1)).map(TenorMediaCodec::fullGif).orElse(m.group(1))) : Optional.empty();
     }
@@ -69,10 +65,8 @@ final class TenorMediaCodec implements SiteCodec {
     }
 
     /** Tenor ignores the filename; the key's suffix selects the rendition, and medium GIFs are swapped for full-size ones. */
-    public CompletableFuture<URI> mediaUri(String key) {
+    @Override public URI mediaUri(String key) {
         String full = key.endsWith(MEDIUM) ? key.substring(0, key.length() - MEDIUM.length()) + FULL : key;
-        return CompletableFuture.completedFuture(URI.create("https://media.tenor.com/" + full + "/tenor.gif"));
+        return URI.create("https://media.tenor.com/" + full + "/tenor.gif");
     }
-
-    public Set<String> allowedDownloadHosts() { return DOWNLOAD; }
 }

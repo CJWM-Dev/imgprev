@@ -6,6 +6,7 @@ import dev.example.imgprev.image.AnimatedTexture;
 import dev.example.imgprev.image.FrameDecoder;
 import dev.example.imgprev.image.ImageCache;
 import dev.example.imgprev.token.ResolvedMedia;
+import dev.example.imgprev.token.TokenCodec;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -18,6 +19,7 @@ import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Util;
 import net.minecraft.world.inventory.tooltip.TooltipComponent;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Hover previews go through vanilla's deferred tooltip (positioning, screen clamping, background, top stratum);
@@ -26,13 +28,33 @@ import net.minecraft.world.inventory.tooltip.TooltipComponent;
 public final class ImageTooltip {
     private ImageTooltip() {}
 
+    /** The token under the cursor, decoded once rather than on every frame it stays there. */
+    private record Hovered(String token, Optional<ResolvedMedia> media, OptionalLong expiresAt) {}
+
+    private static @Nullable Hovered last;
+
     public static void register() {
         ClientTooltipComponentCallback.EVENT.register(data -> data instanceof Preview p ? p : null);
     }
 
-    public static void show(GuiGraphicsExtractor g, Font font, ResolvedMedia media, int mx, int my) {
-        OptionalLong exp = media.codec().expiresAtEpochSec(media.payload());
-        if (exp.isPresent() && exp.getAsLong() < System.currentTimeMillis() / 1000) { text(g, font, "Discord link expired", mx, my); return; }
+    /** {@link TokenCodec#decode(String)}, remembering the last token. Render thread only. */
+    public static Optional<ResolvedMedia> resolve(String token) { return hovered(token).media(); }
+
+    private static Hovered hovered(String token) {
+        Hovered h = last;
+        if (h == null || !h.token().equals(token)) {
+            Optional<ResolvedMedia> media = TokenCodec.decode(token);
+            last = h = new Hovered(token, media, media.map(m -> m.codec().expiresAtEpochSec(m.payload())).orElse(OptionalLong.empty()));
+        }
+        return h;
+    }
+
+    public static void show(GuiGraphicsExtractor g, Font font, String token, ResolvedMedia media, int mx, int my) {
+        OptionalLong exp = hovered(token).expiresAt();
+        if (exp.isPresent() && exp.getAsLong() < System.currentTimeMillis() / 1000) {
+            text(g, font, media.codec().expiredMessage(), mx, my);
+            return;
+        }
         int[] box = box();
         ImageCache.Entry e = ImgPrevClient.CACHE.getOrStart(media, box[0], box[1], Minecraft.getInstance().getWindow().getGuiScale());
         switch (e.state()) {

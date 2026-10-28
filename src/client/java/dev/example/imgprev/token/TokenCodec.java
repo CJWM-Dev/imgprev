@@ -14,7 +14,7 @@ import java.util.zip.CRC32;
 /**
  * Tokens are {@code "<~" header payload check "~>"}. Version 2 (sent): the header is the site code in upper case and the
  * payload is the site's {@link SiteCodec#compact} form, Base62 only. Version 1 (still read): the header is {@code "1"}
- * plus the lower-case site code, and the payload is the site's payload as-is. See handoff §4.
+ * plus the lower-case site code, and the payload is the site's payload as-is. See docs/VERIFIED.md, "Token v2".
  */
 public final class TokenCodec {
     public static final Pattern TOKEN = Pattern.compile("<~([0-9]?)([A-Za-z])([A-Za-z0-9-]{1,200})([0-9A-Za-z])~>");

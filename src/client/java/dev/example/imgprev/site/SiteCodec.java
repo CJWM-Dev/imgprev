@@ -4,20 +4,30 @@ import java.net.URI;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 
 public interface SiteCodec {
     char code();
-    String name();                                      // for commands, e.g. "giphy"
-    String title();                                     // for people, e.g. "Giphy"
-    String label();                                     // shown in chat, e.g. "GIF", "Image", "Discord"
-    Set<String> acceptedHosts();                        // sender side, exact match
+    /** For commands, e.g. "giphy". */
+    String name();
+    /** For people, e.g. "Giphy". */
+    String title();
+    /** What its tokens show as in chat. */
+    Label label();
+    /** Sender side, exact match. */
+    Set<String> acceptedHosts();
+    Set<String> allowedDownloadHosts();
     Pattern payloadPattern();
     Optional<String> payloadFrom(URI uri);
-    CompletableFuture<URI> mediaUri(String payload);    // constant host template
-    Set<String> allowedDownloadHosts();
+    /** The download address, on a constant host; throws {@link IllegalArgumentException} for a payload that can't be one. */
+    URI mediaUri(String payload);
+
     default OptionalLong expiresAtEpochSec(String payload) { return OptionalLong.empty(); }
+    /** Shown instead of loading once {@link #expiresAtEpochSec} has passed. */
+    default String expiredMessage() { return "Link expired"; }
+    /** What an HTTP error from this site means, when it means something particular here. */
+    default Optional<String> statusMessage(int status) { return Optional.empty(); }
+
     /** Token v2 form of a valid payload: Base62 only, as short as the site allows. The default suits Base62 payloads. */
     default String compact(String payload) { return payload; }
     /** Inverse of {@link #compact}; empty when nothing compacts to {@code compact}. The result is checked against {@link #payloadPattern}. */

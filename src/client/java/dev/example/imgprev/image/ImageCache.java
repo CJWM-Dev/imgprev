@@ -205,10 +205,9 @@ public final class ImageCache {
     /** Download, decode, and copy into native memory; runs on the download and decode pools. */
     static CompletableFuture<Decoded> download(ResolvedMedia m, int pxW, int pxH) {
         int maxBytes = ImgPrevClient.CONFIG.maxDownloadBytes();
-        CompletableFuture<URI> uri;
-        try { uri = m.codec().mediaUri(m.payload()); } catch (RuntimeException ex) { uri = CompletableFuture.failedFuture(ex); }
-        return uri.thenCompose(u -> SafeHttp.get(u, m.codec().allowedDownloadHosts(), maxBytes, "image/"))
-            .thenApplyAsync(bytes -> decode(bytes, pxW, pxH), DECODE);
+        URI uri;
+        try { uri = m.codec().mediaUri(m.payload()); } catch (RuntimeException ex) { return CompletableFuture.failedFuture(ex); }
+        return SafeHttp.get(uri, m.codec().allowedDownloadHosts(), maxBytes, "image/").thenApplyAsync(bytes -> decode(bytes, pxW, pxH), DECODE);
     }
 
     /** Decodes straight into native images, one frame at a time; nothing is left allocated if it fails partway. */
@@ -243,10 +242,11 @@ public final class ImageCache {
     static String describe(ResolvedMedia m, @Nullable Throwable err) {
         return switch (err == null ? null : SafeHttp.unwrap(err)) {
             case MediaException e -> e.getMessage();
-            case SafeHttp.HttpStatusException e when m.codec().code() == 'd' && (e.status == 403 || e.status == 404) -> "Discord link expired";
-            case SafeHttp.HttpStatusException e when e.status == 404 || e.status == 410 -> "Image not found";
-            case SafeHttp.HttpStatusException e when e.status == 429 -> "Rate limited, try again later";
-            case SafeHttp.HttpStatusException e -> "Couldn't load image (HTTP " + e.status + ")";
+            case SafeHttp.HttpStatusException e -> m.codec().statusMessage(e.status).orElseGet(() -> switch (e.status) {
+                case 404, 410 -> "Image not found";
+                case 429 -> "Rate limited, try again later";
+                default -> "Couldn't load image (HTTP " + e.status + ")";
+            });
             case HttpTimeoutException e -> "Timed out";
             case IIOException e -> "Couldn't decode image";
             case null, default -> "Couldn't load image";

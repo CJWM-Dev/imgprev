@@ -13,12 +13,12 @@ import org.slf4j.LoggerFactory;
 
 public final class ImgPrevClient implements ClientModInitializer {
     public static final Logger LOG = LoggerFactory.getLogger("imgprev");
+    /** Loaded once at startup; {@code /imgprev reload} reads the file back into this same object. */
     public static ImgPrevConfig CONFIG;
-    public static ImageCache CACHE;
+    public static final ImageCache CACHE = new ImageCache();
 
     @Override public void onInitializeClient() {
         CONFIG = ImgPrevConfig.load();
-        CACHE = new ImageCache();
         ImageTooltip.register();
         AutoConvert.register();
         ClientCommandRegistrationCallback.EVENT.register(ImgLinkCommand::register);

@@ -7,7 +7,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import org.junit.jupiter.api.Test;
+import dev.example.imgprev.site.TestTokens;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class TokenCodecTest {
@@ -19,10 +21,7 @@ class TokenCodecTest {
     }
 
     @Test void wrongChecksumRejected() {
-        String good = craft("1gkj8RVuDxh4x7W");
-        char c = good.charAt(good.length() - 3);
-        String bad = good.substring(0, good.length() - 3) + (c == 'A' ? 'B' : 'A') + "~>";
-        assertTrue(TokenCodec.decode(bad).isEmpty());
+        assertTrue(TokenCodec.decode(TestTokens.withBadCheck(craft("1gkj8RVuDxh4x7W"))).isEmpty());
     }
 
     @Test void otherVersionRejected() {
@@ -46,16 +45,14 @@ class TokenCodecTest {
 
     /** Tokens from 0.1.x stay readable and share the cache entry of the same image's new token. */
     @ParameterizedTest
-    @ValueSource(strings = {
-        "<~1gkj8RVuDxh4x7W%s~>|https://i.giphy.com/media/kj8RVuDxh4x7W/giphy.gif",
-        "<~1t6n0lkxsBEQkAAAAC%s~>|https://media.tenor.com/6n0lkxsBEQkAAAAC/x.gif",
-        "<~1cpsa4ue3%s~>|https://files.catbox.moe/sa4ue3.png",
-    })
-    void v1TokensStillDecode(String row) {
-        String[] f = row.split("\\|");
-        String body = f[0].substring(2, f[0].indexOf('%'));
-        ResolvedMedia v1 = TokenCodec.decode(craft(body)).orElseThrow(() -> new AssertionError(body));
-        ResolvedMedia v2 = TokenCodec.decode(TokenCodec.encode(f[1]).orElseThrow()).orElseThrow();
+    @CsvSource(delimiter = '|', textBlock = """
+        1gkj8RVuDxh4x7W    | https://i.giphy.com/media/kj8RVuDxh4x7W/giphy.gif
+        1t6n0lkxsBEQkAAAAC | https://media.tenor.com/6n0lkxsBEQkAAAAC/x.gif
+        1cpsa4ue3          | https://files.catbox.moe/sa4ue3.png
+        """)
+    void v1TokensStillDecode(String v1Body, String url) {
+        ResolvedMedia v1 = TokenCodec.decode(craft(v1Body)).orElseThrow(() -> new AssertionError(v1Body));
+        ResolvedMedia v2 = TokenCodec.decode(TokenCodec.encode(url).orElseThrow()).orElseThrow();
         assertEquals(v2.key(), v1.key());
     }
 

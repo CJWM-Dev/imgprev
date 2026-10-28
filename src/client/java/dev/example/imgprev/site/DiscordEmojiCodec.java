@@ -6,25 +6,21 @@ import java.math.BigInteger;
 import java.net.URI;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Emoji URLs are unsigned and don't expire. Payload: {@code a|s} (animated/static) + Base62(snowflake). */
-final class DiscordEmojiCodec implements SiteCodec {
-    static final Pattern PATH = Pattern.compile("^/emojis/(\\d{15,21})\\.(gif|png|webp)$", Pattern.CASE_INSENSITIVE);
+final class DiscordEmojiCodec extends BaseCodec {
+    static final Pattern PATH = Pattern.compile("^/emojis/(\\d{15,21})\\.(?i:(gif|png|webp))$");
     static final Pattern P = Pattern.compile("[as][0-9A-Za-z]{1,11}");
-    private static final Set<String> HOSTS = Set.of("cdn.discordapp.com", "media.discordapp.net");
-    private static final Set<String> DOWNLOAD = Set.of("cdn.discordapp.com");
 
-    public char code() { return 'e'; }
-    public String name() { return "emoji"; }
-    public String title() { return "Discord emoji"; }
-    public String label() { return "Emoji"; }
-    public Set<String> acceptedHosts() { return HOSTS; }
-    public Pattern payloadPattern() { return P; }
+    DiscordEmojiCodec() {
+        super('e', "emoji", "Discord emoji", Label.EMOJI, Set.of("cdn.discordapp.com", "media.discordapp.net"), Set.of("cdn.discordapp.com"));
+    }
 
-    public Optional<String> payloadFrom(URI u) {
+    @Override public Pattern payloadPattern() { return P; }
+
+    @Override public Optional<String> payloadFrom(URI u) {
         Matcher m = PATH.matcher(u.getPath());
         if (!m.matches()) return Optional.empty();
         // The Discord client links animated emoji as .webp?animated=true.
@@ -45,12 +41,10 @@ final class DiscordEmojiCodec implements SiteCodec {
         });
     }
 
-    public CompletableFuture<URI> mediaUri(String p) {
+    @Override public URI mediaUri(String p) {
         String id = Base62.decode(p.substring(1)).toString();
-        if (!DiscordAttachmentCodec.SNOWFLAKE.matcher(id).matches()) return CompletableFuture.failedFuture(new IllegalArgumentException("snowflake"));
+        if (!DiscordAttachmentCodec.SNOWFLAKE.matcher(id).matches()) throw new IllegalArgumentException("snowflake");
         String ext = p.charAt(0) == 'a' ? "gif" : "png";
-        return CompletableFuture.completedFuture(URI.create("https://cdn.discordapp.com/emojis/" + id + "." + ext + "?size=128"));
+        return URI.create("https://cdn.discordapp.com/emojis/" + id + "." + ext + "?size=128");
     }
-
-    public Set<String> allowedDownloadHosts() { return DOWNLOAD; }
 }

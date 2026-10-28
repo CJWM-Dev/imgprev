@@ -66,7 +66,7 @@ class SiteRoundTripTest {
         assertEquals(expected, rebuilt(url));
     }
 
-    @Test void handoffExamples() {
+    @Test void knownTokenShapes() {
         String imgur = token("https://i.imgur.com/AbC12xY.png");
         assertTrue(imgur.startsWith("<~IpAbC12xY") && imgur.endsWith("~>") && imgur.length() == 14, imgur);
         String giphy = token("https://media4.giphy.com/media/kj8RVuDxh4x7W/giphy.gif");
@@ -79,7 +79,7 @@ class SiteRoundTripTest {
                 "https://gyazo.com/0123456789abcdef0123456789abcdef", "https://i.postimg.cc/XqRyT9nn/x.png",
                 "https://i.ibb.co/M5f2dMkG/Full-Moon.webp", "https://files.catbox.moe/sa4ue3.png"}) {
             var m = media(url);
-            assertTrue(m.codec().allowedDownloadHosts().contains(m.codec().mediaUri(m.payload()).join().getHost()), url);
+            assertTrue(m.codec().allowedDownloadHosts().contains(m.codec().mediaUri(m.payload()).getHost()), url);
         }
     }
 

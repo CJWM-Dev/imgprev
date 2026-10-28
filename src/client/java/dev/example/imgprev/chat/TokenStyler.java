@@ -1,9 +1,10 @@
 package dev.example.imgprev.chat;
 
+import dev.example.imgprev.config.ImgPrevConfig;
+import dev.example.imgprev.site.Label;
 import dev.example.imgprev.token.ResolvedMedia;
 import dev.example.imgprev.token.TokenCodec;
 import java.util.Optional;
-import dev.example.imgprev.config.ImgPrevConfig;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
@@ -17,19 +18,6 @@ import net.minecraft.network.chat.TextColor;
 public final class TokenStyler {
     private TokenStyler() {}
 
-    /** "[▶ GIF]", "[⧈ Image]", "[☺ Emoji]", "[✉ Discord]". */
-    public static String labelText(String label) { return "[" + icon(label) + " " + label + "]"; }
-
-    /** One symbol per kind of label, all from Minecraft's own bitmap font (include/default.json) so they stay crisp. */
-    public static String icon(String label) {
-        return switch (label) {
-            case "GIF" -> "▶";
-            case "Emoji" -> "☺";
-            case "Discord" -> "✉";
-            default -> "⧈";   // a framed picture, for "Image"
-        };
-    }
-
     /** {@link #apply(Component, Predicate, Function)} in the default colours. */
     public static Component apply(Component in, Predicate<ResolvedMedia> allowed) { return apply(in, allowed, ImgPrevConfig::defaultLabelColor); }
 
@@ -37,10 +25,10 @@ public final class TokenStyler {
      * Returns {@code in} itself when nothing was replaced. A token split across two styled segments won't match;
      * acceptable since tokens are typed as plain text.
      */
-    public static Component apply(Component in, Predicate<ResolvedMedia> allowed, Function<String, TextColor> colors) {
+    public static Component apply(Component in, Predicate<ResolvedMedia> allowed, Function<Label, TextColor> colors) {
         if (!TokenCodec.TOKEN.matcher(in.getString()).find()) return in;
         MutableComponent out = Component.empty();
-        boolean[] changed = {false};
+        boolean[] changed = {false};   // set inside the visitor
         in.visit((style, text) -> {
             Matcher m = TokenCodec.TOKEN.matcher(text);
             int last = 0;
@@ -59,7 +47,7 @@ public final class TokenStyler {
     }
 
     static Component label(String token, ResolvedMedia media, Style style, TextColor color) {
-        return Component.literal(labelText(media.codec().label()))
+        return Component.literal(media.codec().label().labelText())
             .setStyle(style.withColor(color).withHoverEvent(new HoverEvent.ShowText(Component.literal(token))));
     }
 }

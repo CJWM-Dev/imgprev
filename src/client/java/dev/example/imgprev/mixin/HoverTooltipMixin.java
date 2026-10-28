@@ -4,7 +4,6 @@ import dev.example.imgprev.ImgPrevClient;
 import dev.example.imgprev.config.ImgPrevConfig;
 import dev.example.imgprev.render.ImageTooltip;
 import dev.example.imgprev.token.ResolvedMedia;
-import dev.example.imgprev.token.TokenCodec;
 import java.util.Optional;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -24,11 +23,12 @@ abstract class HoverTooltipMixin {
     private void imgprev$imageTooltip(Font font, Style style, int mx, int my, CallbackInfo ci) {
         ImgPrevConfig cfg = ImgPrevClient.CONFIG;
         if (!cfg.renderEnabled || !(style.getHoverEvent() instanceof HoverEvent.ShowText(Component value))) return;
-        Optional<ResolvedMedia> media = TokenCodec.decode(value.getString()).filter(cfg::allows);
+        String token = value.getString();
+        Optional<ResolvedMedia> media = ImageTooltip.resolve(token).filter(cfg::allows);
         if (media.isEmpty()) return;
         ci.cancel();
         GuiGraphicsExtractor g = (GuiGraphicsExtractor) (Object) this;
         if (cfg.requireShift && !Minecraft.getInstance().hasShiftDown()) ImageTooltip.text(g, font, "Hold Shift to preview", mx, my);
-        else ImageTooltip.show(g, font, media.get(), mx, my);
+        else ImageTooltip.show(g, font, token, media.get(), mx, my);
     }
 }

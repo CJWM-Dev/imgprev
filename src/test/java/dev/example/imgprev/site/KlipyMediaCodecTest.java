@@ -5,6 +5,7 @@ import static dev.example.imgprev.site.TestTokens.media;
 import static dev.example.imgprev.site.TestTokens.rebuilt;
 import static dev.example.imgprev.site.TestTokens.token;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.example.imgprev.token.TokenCodec;
@@ -32,7 +33,8 @@ class KlipyMediaCodecTest {
     }
 
     @Test void tokensStayShort() {
-        assertTrue(token("https://static.klipy.com" + PATH + ".webp").length() < 50, token("https://static.klipy.com" + PATH + ".webp"));
+        String token = token("https://static.klipy.com" + PATH + ".webp");
+        assertTrue(token.length() < 50, token);
     }
 
     @ParameterizedTest
@@ -53,6 +55,6 @@ class KlipyMediaCodecTest {
         KlipyMediaCodec c = new KlipyMediaCodec();
         String crafted = "w" + "z".repeat(22) + "-1-NiBtvUhr";
         assertTrue(c.payloadPattern().matcher(crafted).matches());
-        assertTrue(c.mediaUri(crafted).isCompletedExceptionally());
+        assertThrows(IllegalArgumentException.class, () -> c.mediaUri(crafted));
     }
 }
