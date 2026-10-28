@@ -56,6 +56,13 @@ sourceSets.test {
     runtimeClasspath += sourceSets.client.output
 }
 
+// `./gradlew tokenVectors`: every corpus link as link → token → download URL, for ports of the token format to test against.
+tasks.register("tokenVectors", JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = "io.github.cjwmdev.imgprev.token.TokenVectors"
+    args layout.buildDirectory.file("token-vectors.tsv").get().asFile.path
+}
+
 // Fills "${version}" in fabric.mod.json.
 processResources {
     def version = project.version
