@@ -90,16 +90,44 @@ class ImageCacheTest {
         assertFalse(cache.isSlow(hover(99)), "waiting for a slot hasn't started loading");
     }
 
-    @Test void failuresAreRetriedOnlyAfterAMinute() {
+    @Test void passingFailuresCountDownThenTryAgainByThemselves() {
         hover(1);
-        loads.get(0).future().completeExceptionally(new HttpTimeoutException("x"));
-        assertEquals("Timed out", hover(1).error());
+        loads.get(0).future().completeExceptionally(new java.net.http.HttpConnectTimeoutException("HTTP connect timed out"));
+        ImageCache.Entry failed = hover(1);
+        assertEquals("Couldn't connect to Giphy in time", failed.error());
+        assertEquals(60, cache.secondsUntilRetry(failed));
+        now.addAndGet(18_500);
+        assertEquals(42, cache.secondsUntilRetry(hover(1)), "rounded up, so it never shows 0 early");
+        assertEquals(1, loads.size(), "not yet");
+        now.addAndGet(ImageCache.RETRY_MS - 18_500);
+        ImageCache.Entry retry = hover(1);
+        assertEquals(ImageCache.State.LOADING, retry.state(), "a minute on, still hovered: it tries again");
+        assertEquals(2, retry.attempt());
+        assertEquals(2, loads.size());
+    }
+
+    @Test void lastingFailuresAreNotTriedAgain() {
+        hover(1);
+        loads.get(0).future().completeExceptionally(new SafeHttp.HttpStatusException(404));
+        ImageCache.Entry failed = hover(1);
+        assertEquals("Image not found", failed.error());
+        assertEquals(-1, cache.secondsUntilRetry(failed));
+        now.addAndGet(10 * ImageCache.RETRY_MS);
+        assertEquals(ImageCache.State.FAILED, hover(1).state());
+        assertEquals(1, loads.size());
+    }
+
+    @Test void aRetryThatFailsAgainWaitsAnotherMinute() {
+        hover(1);
+        loads.get(0).future().completeExceptionally(new SafeHttp.HttpStatusException(503));
         now.addAndGet(ImageCache.RETRY_MS);
         hover(1);
-        assertEquals(1, loads.size(), "not yet");
-        now.addAndGet(1);
-        assertEquals(ImageCache.State.LOADING, hover(1).state());
-        assertEquals(2, loads.size(), "retried");
+        loads.get(1).future().completeExceptionally(new SafeHttp.HttpStatusException(503));
+        ImageCache.Entry again = hover(1);
+        assertEquals(60, cache.secondsUntilRetry(again));
+        assertEquals(2, again.attempt());
+        now.addAndGet(ImageCache.RETRY_MS);
+        assertEquals(3, hover(1).attempt());
     }
 
     @Test void loadsFinishingAfterAClearFreeTheirImages() {
@@ -165,16 +193,32 @@ class ImageCacheTest {
         assertNull(cache.peek(gif(0).key()), "the oldest went first");
     }
 
-    @Test void errorsReadNaturally() {
+    /** The message, and "retry" or "final". */
+    static String described(ResolvedMedia m, Throwable err) {
+        ImageCache.Failure f = ImageCache.describe(m, err);
+        return f.message() + (f.retry() ? " | retry" : " | final");
+    }
+
+    @Test void errorsSayWhatWentWrongAndWhetherItsWorthTryingAgain() {
         ResolvedMedia discord = new ResolvedMedia(SiteRegistry.byCode('d').orElseThrow(), "x");
-        assertEquals("Discord link expired", ImageCache.describe(discord, new SafeHttp.HttpStatusException(403)));
-        assertEquals("Image not found", ImageCache.describe(gif(1), new SafeHttp.HttpStatusException(404)));
-        assertEquals("Rate limited, try again later", ImageCache.describe(gif(1), new SafeHttp.HttpStatusException(429)));
-        assertEquals("Couldn't load image (HTTP 500)", ImageCache.describe(gif(1), new SafeHttp.HttpStatusException(500)));
-        assertEquals("File too large (over 2 MB)", ImageCache.describe(gif(1),
-            new java.util.concurrent.CompletionException(SafeHttp.tooLarge(2 << 20))));
-        assertEquals("Couldn't decode image", ImageCache.describe(gif(1), new javax.imageio.IIOException("bad")));
-        assertEquals("Couldn't load image", ImageCache.describe(gif(1), new IllegalStateException()));
+        ResolvedMedia postimages = new ResolvedMedia(SiteRegistry.byCode('p').orElseThrow(), "8zXVwKmm");
+        // Might clear up by itself
+        assertEquals("Couldn't connect to Postimages in time | retry", described(postimages, new java.net.http.HttpConnectTimeoutException("x")));
+        assertEquals("Postimages took too long to answer | retry", described(postimages, new HttpTimeoutException("request timed out")));
+        assertEquals("Postimages stopped sending the image | retry", described(postimages, new HttpTimeoutException(SafeHttp.STALLED)));
+        assertEquals("Postimages took too long to send the image | retry", described(postimages, new HttpTimeoutException(SafeHttp.TOO_LONG)));
+        assertEquals("Couldn't connect to Discord. Check your connection | retry", described(discord, new java.net.ConnectException()));
+        assertEquals("Couldn't find Giphy. Check your connection | retry", described(gif(1), new java.net.UnknownHostException("i.giphy.com")));
+        assertEquals("Lost the connection to Giphy | retry", described(gif(1), new java.io.IOException("Connection reset")));
+        assertEquals("Giphy is limiting requests | retry", described(gif(1), new SafeHttp.HttpStatusException(429)));
+        assertEquals("Giphy is having problems (HTTP 503) | retry", described(gif(1), new SafeHttp.HttpStatusException(503)));
+        // Won't
+        assertEquals("Discord link expired | final", described(discord, new SafeHttp.HttpStatusException(403)));
+        assertEquals("Image not found | final", described(gif(1), new SafeHttp.HttpStatusException(404)));
+        assertEquals("Giphy refused the image (HTTP 403) | final", described(gif(1), new SafeHttp.HttpStatusException(403)));
+        assertEquals("File too large (over 2 MB) | final", described(gif(1), new java.util.concurrent.CompletionException(SafeHttp.tooLarge(2 << 20))));
+        assertEquals("Couldn't read the image | final", described(gif(1), new javax.imageio.IIOException("bad")));
+        assertEquals("Couldn't load the image | final", described(gif(1), new IllegalStateException()));
     }
 
     @Test void decodingCopiesPixelsIntoNativeImagesExactly() throws Exception {

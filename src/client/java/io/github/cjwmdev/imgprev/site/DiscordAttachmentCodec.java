@@ -38,6 +38,7 @@ final class DiscordAttachmentCodec extends BaseCodec {
 
     DiscordAttachmentCodec() { super('d', "discord", "Discord attachments", Label.DISCORD, HOSTS, HOSTS); }
 
+    @Override public String siteName() { return "Discord"; }
     @Override public Pattern payloadPattern() { return P; }
 
     @Override public Optional<String> payloadFrom(URI u) {

@@ -12,6 +12,8 @@ public interface SiteCodec {
     String name();
     /** For people, e.g. "Giphy". */
     String title();
+    /** The site itself in messages ("Couldn't connect to Discord"), where {@link #title} names a part of it. */
+    default String siteName() { return title(); }
     /** What its tokens show as in chat. */
     Label label();
     /** Sender side, exact match. */

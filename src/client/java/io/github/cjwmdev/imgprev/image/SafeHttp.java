@@ -16,7 +16,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Flow;
 import java.util.concurrent.ThreadFactory;
@@ -41,8 +40,10 @@ public final class SafeHttp {
     static final Duration WAIT = Duration.ofSeconds(30);
     static final Timeouts TIMEOUTS = new Timeouts(WAIT, WAIT, Duration.ofSeconds(120));
     static final HttpClient HTTP = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).connectTimeout(WAIT).build();
-    /** Two downloads at a time. */
-    static final ExecutorService POOL = Executors.newFixedThreadPool(2, daemon("imgprev-dl"));
+    /** Shares the download threads out between sites; see {@link DownloadQueue}. */
+    static final DownloadQueue QUEUE = new DownloadQueue(Executors.newCachedThreadPool(daemon("imgprev-dl")));
+    /** Messages of the {@link HttpTimeoutException}s for a body that stops arriving, or that takes too long in all. */
+    static final String STALLED = "download stalled", TOO_LONG = "download took too long";
 
     private SafeHttp() {}
 
@@ -63,11 +64,8 @@ public final class SafeHttp {
 
     /** Redirects are followed by hand and every hop must be HTTPS on {@code allowedHosts}. */
     public static CompletableFuture<byte[]> get(URI uri, Set<String> allowedHosts, int maxBytes, String contentTypePrefix) {
-        return CompletableFuture.supplyAsync(() -> {
-            try { return fetch(HTTP, u -> checkHost(u, allowedHosts), uri, maxBytes, contentTypePrefix, TIMEOUTS); }
-            catch (IOException e) { throw new CompletionException(e); }
-            catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new CompletionException(e); }
-        }, POOL);
+        String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
+        return QUEUE.submit(host, () -> fetch(HTTP, u -> checkHost(u, allowedHosts), uri, maxBytes, contentTypePrefix, TIMEOUTS));
     }
 
     static byte[] fetch(HttpClient client, HostCheck hosts, URI uri, int maxBytes, String contentTypePrefix, Timeouts limits)
@@ -104,7 +102,7 @@ public final class SafeHttp {
                 CappedBody b = body.get();
                 boolean stalled = b != null && now - b.lastProgress > idle.toNanos();
                 if (stalled || now - deadline > 0) {
-                    HttpTimeoutException timeout = new HttpTimeoutException(stalled ? "download stalled" : "download took too long");
+                    HttpTimeoutException timeout = new HttpTimeoutException(stalled ? STALLED : TOO_LONG);
                     if (b != null) b.fail(timeout);
                     f.cancel(true);
                     throw timeout;

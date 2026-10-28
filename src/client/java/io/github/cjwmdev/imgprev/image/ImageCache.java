@@ -4,7 +4,10 @@ import com.mojang.blaze3d.platform.NativeImage;
 import io.github.cjwmdev.imgprev.ImgPrevClient;
 import io.github.cjwmdev.imgprev.token.ResolvedMedia;
 import java.io.IOException;
+import java.net.ConnectException;
 import java.net.URI;
+import java.net.UnknownHostException;
+import java.net.http.HttpConnectTimeoutException;
 import java.net.http.HttpTimeoutException;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -29,7 +32,8 @@ import org.jspecify.annotations.Nullable;
 public final class ImageCache {
     public enum State { LOADING, READY, FAILED }
 
-    static final long RETRY_MS = 60_000;
+    /** A failure that might clear up (timeouts, connection trouble, server errors) is tried again after this long. */
+    public static final long RETRY_MS = 60_000;
     /** A load taking longer than this shows a "still loading" message instead of the plain one. */
     public static final long SLOW_MS = 5_000;
     /** Loads (download + decode) running at once. More hovers wait for a slot, so sweeping the cursor over chat can't queue them all. */
@@ -50,10 +54,20 @@ public final class ImageCache {
         /** Source size, and the pixel box the texture was decoded to fit. */
         private int srcW, srcH, pxW, pxH;
         private boolean upgrading;
+        /** Whether a failure is worth trying again; and which try this is, from 1. */
+        private boolean retryable;
+        private int attempt = 1;
 
         public State state() { return state; }
         public @Nullable AnimatedTexture texture() { return texture; }
         public String error() { return error; }
+        public int attempt() { return attempt; }
+    }
+
+    /** Why a load failed, in words for the player, and whether trying again later might work. */
+    record Failure(String message, boolean retry) {
+        static Failure retry(String message) { return new Failure(message, true); }
+        static Failure permanent(String message) { return new Failure(message, false); }
     }
 
     /** Handed out while every load slot is busy; the next frame's hover asks again. */
@@ -84,8 +98,10 @@ public final class ImageCache {
     }
 
     /**
-     * Called every frame while a preview is hovered. FAILED entries are kept so dead links aren't refetched each frame.
-     * A new load fits the image in {@code boxW×boxH} GUI units, decoded at {@code guiScale} pixels per unit.
+     * Called every frame while a preview is hovered. FAILED entries are kept so dead links aren't refetched each frame;
+     * a failure that might clear up is tried again once {@link #RETRY_MS} has passed, by itself if the preview is still
+     * hovered, otherwise the next time it is (nothing downloads in the background unasked). A new load fits the image
+     * in {@code boxW×boxH} GUI units, decoded at {@code guiScale} pixels per unit.
      */
     public Entry getOrStart(ResolvedMedia m, int boxW, int boxH, int guiScale) {
         String key = m.key();
@@ -93,7 +109,7 @@ public final class ImageCache {
         Entry e = entries.remove(key);
         if (e != null) {
             entries.put(key, e);   // now the most recently hovered
-            boolean retry = e.state == State.FAILED && clock.getAsLong() - e.failedAt > RETRY_MS;
+            boolean retry = secondsUntilRetry(e) == 0;
             if (!retry) {
                 if (wantsUpgrade(e, pxW, pxH) && loading < MAX_LOADING) {
                     e.upgrading = true;
@@ -106,6 +122,7 @@ public final class ImageCache {
             return WAITING;
         }
         Entry fresh = new Entry();
+        if (e != null) fresh.attempt = e.attempt + 1;
         entries.put(key, fresh);
         start(m, fresh, null, boxW, boxH, pxW, pxH);
         trimEmpty();
@@ -131,6 +148,12 @@ public final class ImageCache {
         int[] fitted = FrameDecoder.fit(e.srcW, e.srcH, e.pxW, e.pxH);
         boolean boxLimited = fitted[0] < e.srcW || fitted[1] < e.srcH;
         return boxLimited && e.texture.textureW() == fitted[0];
+    }
+
+    /** Whole seconds until a failed load is tried again (0: now); -1 when it failed for good or hasn't failed. */
+    public long secondsUntilRetry(Entry e) {
+        if (e.state != State.FAILED || !e.retryable) return -1;
+        return Math.max(0, Math.ceilDiv(RETRY_MS - (clock.getAsLong() - e.failedAt), 1000));
     }
 
     /** Still loading after {@link #SLOW_MS}: the tooltip says so, so a slow site doesn't look stuck. */
@@ -161,8 +184,10 @@ public final class ImageCache {
                 replacing.pxH = pxH;
                 return;
             }
+            Failure failure = describe(m, err);
             target.state = State.FAILED;
-            target.error = describe(m, err);
+            target.error = failure.message();
+            target.retryable = failure.retry();
             target.failedAt = clock.getAsLong();
             ImgPrevClient.LOG.debug("Preview {} failed: {}", m.key(), String.valueOf(err));
             return;
@@ -249,17 +274,30 @@ public final class ImageCache {
         return img;
     }
 
-    static String describe(ResolvedMedia m, @Nullable Throwable err) {
+    static Failure describe(ResolvedMedia m, @Nullable Throwable err) {
+        String site = m.codec().siteName();
         return switch (err == null ? null : SafeHttp.unwrap(err)) {
-            case MediaException e -> e.getMessage();
-            case SafeHttp.HttpStatusException e -> m.codec().statusMessage(e.status).orElseGet(() -> switch (e.status) {
-                case 404, 410 -> "Image not found";
-                case 429 -> "Rate limited, try again later";
-                default -> "Couldn't load image (HTTP " + e.status + ")";
-            });
-            case HttpTimeoutException e -> "Timed out";
-            case IIOException e -> "Couldn't decode image";
-            case null, default -> "Couldn't load image";
+            case MediaException e -> Failure.permanent(e.getMessage());
+            case SafeHttp.HttpStatusException e -> status(m, site, e.status);
+            case HttpConnectTimeoutException e -> Failure.retry("Couldn't connect to " + site + " in time");
+            case HttpTimeoutException e when SafeHttp.STALLED.equals(e.getMessage()) -> Failure.retry(site + " stopped sending the image");
+            case HttpTimeoutException e when SafeHttp.TOO_LONG.equals(e.getMessage()) -> Failure.retry(site + " took too long to send the image");
+            case HttpTimeoutException e -> Failure.retry(site + " took too long to answer");
+            case UnknownHostException e -> Failure.retry("Couldn't find " + site + ". Check your connection");
+            case ConnectException e -> Failure.retry("Couldn't connect to " + site + ". Check your connection");
+            case IIOException e -> Failure.permanent("Couldn't read the image");
+            case IOException e -> Failure.retry("Lost the connection to " + site);
+            case InterruptedException e -> Failure.retry("Loading was interrupted");
+            case null, default -> Failure.permanent("Couldn't load the image");
         };
+    }
+
+    private static Failure status(ResolvedMedia m, String site, int status) {
+        return m.codec().statusMessage(status).map(Failure::permanent).orElseGet(() -> switch (status) {
+            case 404, 410 -> Failure.permanent("Image not found");
+            case 429 -> Failure.retry(site + " is limiting requests");
+            default -> status >= 500 ? Failure.retry(site + " is having problems (HTTP " + status + ")")
+                : Failure.permanent(site + " refused the image (HTTP " + status + ")");
+        });
     }
 }

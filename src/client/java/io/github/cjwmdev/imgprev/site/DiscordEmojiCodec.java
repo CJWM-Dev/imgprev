@@ -18,6 +18,7 @@ final class DiscordEmojiCodec extends BaseCodec {
         super('e', "emoji", "Discord emoji", Label.EMOJI, Set.of("cdn.discordapp.com", "media.discordapp.net"), Set.of("cdn.discordapp.com"));
     }
 
+    @Override public String siteName() { return "Discord"; }
     @Override public Pattern payloadPattern() { return P; }
 
     @Override public Optional<String> payloadFrom(URI u) {

@@ -52,16 +52,31 @@ public final class ImageTooltip {
     public static void show(GuiGraphicsExtractor g, Font font, String token, ResolvedMedia media, int mx, int my) {
         OptionalLong exp = hovered(token).expiresAt();
         if (exp.isPresent() && exp.getAsLong() < System.currentTimeMillis() / 1000) {
-            text(g, font, media.codec().expiredMessage(), mx, my);
+            failed(g, font, media.codec().expiredMessage(), -1, mx, my);
             return;
         }
         int[] box = box();
-        ImageCache.Entry e = ImgPrevClient.CACHE.getOrStart(media, box[0], box[1], Minecraft.getInstance().getWindow().getGuiScale());
+        ImageCache cache = ImgPrevClient.CACHE;
+        ImageCache.Entry e = cache.getOrStart(media, box[0], box[1], Minecraft.getInstance().getWindow().getGuiScale());
         switch (e.state()) {
-            case LOADING -> text(g, font, ImgPrevClient.CACHE.isSlow(e) ? "Still loading… the site is slow to answer" : "Loading image…", mx, my);
-            case FAILED -> text(g, font, e.error(), mx, my);
+            case LOADING -> text(g, font, loading(e.attempt() > 1, cache.isSlow(e), media.codec().siteName()), mx, my);
+            case FAILED -> failed(g, font, e.error(), cache.secondsUntilRetry(e), mx, my);
             case READY -> g.setTooltipForNextFrame(font, List.of(), Optional.of(new Preview(e.texture())), mx, my);
         }
+    }
+
+    /** "Loading image…", or after a failure "Trying again…"; past five seconds, which site is being slow. */
+    static String loading(boolean retrying, boolean slow, String site) {
+        if (!slow) return retrying ? "Trying again…" : "Loading image…";
+        return (retrying ? "Still trying… " : "Still loading… ") + site + " is slow to answer";
+    }
+
+    /** The reason in red; under it, when it'll be tried again ({@code retryIn} -1: it won't). */
+    static void failed(GuiGraphicsExtractor g, Font font, String why, long retryIn, int mx, int my) {
+        List<Component> lines = retryIn < 0 ? List.of(Component.literal(why).withStyle(ChatFormatting.RED))
+            : List.of(Component.literal(why).withStyle(ChatFormatting.RED), Component.literal(retryIn > 0
+                ? "Trying again in " + retryIn + " s" : "Trying again shortly").withStyle(ChatFormatting.GRAY));
+        g.setTooltipForNextFrame(font, lines, Optional.empty(), mx, my);
     }
 
     public static void text(GuiGraphicsExtractor g, Font font, String message, int mx, int my) {
