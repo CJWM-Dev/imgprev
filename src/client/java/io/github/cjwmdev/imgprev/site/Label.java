@@ -11,6 +11,7 @@ public enum Label {
     GIF("GIF", "▶", "aqua"),
     IMAGE("Image", "⧈", "green"),   // a framed picture
     EMOJI("Emoji", "☺", "yellow"),
+    STICKER("Sticker", "★", "light_purple"),
     /** Discord's older, lighter blurple, which reads better on chat's dark background than the current one. */
     DISCORD("Discord", "✉", "#7289DA");
 

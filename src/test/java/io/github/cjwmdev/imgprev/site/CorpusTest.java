@@ -24,7 +24,7 @@ import org.junit.jupiter.api.TestFactory;
  * Each link is its own test, so one bad link doesn't hide the rest.
  */
 class CorpusTest {
-    static final List<String> SITES = List.of("catbox", "discord", "emoji", "giphy", "gyazo", "imgbb", "imgur", "klipy", "postimages", "tenor");
+    static final List<String> SITES = List.of("catbox", "discord", "emoji", "giphy", "gyazo", "imgbb", "imgur", "klipy", "postimages", "sticker", "tenor");
 
     static List<String> links(String site) throws IOException {
         String path = "/corpus/" + site + ".txt";

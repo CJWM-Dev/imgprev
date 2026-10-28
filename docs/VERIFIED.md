@@ -123,7 +123,7 @@ Without it, vanilla `ClientTooltipComponent.create(TooltipComponent)` throws `Il
 The client game tests in `src/gametest` drive a real 26.2 client and confirm the items above in practice: both mixins apply; tokens become labels for server system messages and player chat; hovering a label (real cursor input) goes through `componentHoverEffect` and shows the image via the custom tooltip component; Giphy and Tenor GIFs download, decode and animate; errors, the Discord expiry check, budget eviction, and every `/imgprev` setting behave as intended. Two things only showed up there:
 
 - Chat hover uses `GuiGraphicsExtractor.mouseX/mouseY`, captured when the extractor is built each frame from `MouseHandler#getScaledXPos`, and hit-tests with `ActiveTextCollector.findElementUnderCursor`.
-- `🖼` (U+1F5BC) renders from Minecraft's Unifont fallback as a framed-picture glyph, not the missing-glyph box. Since 2026-10-28 labels use one symbol per kind instead, all from the bitmap font's own glyphs (`font/include/default.json`), which stay crisp at every GUI scale: `▶` GIF (U+25B6), `⧈` Image (U+29C8), `☺` Emoji (U+263A), `✉` Discord (U+2709).
+- `🖼` (U+1F5BC) renders from Minecraft's Unifont fallback as a framed-picture glyph, not the missing-glyph box. Since 2026-10-28 labels use one symbol per kind instead, all from the bitmap font's own glyphs (`font/include/default.json`), which stay crisp at every GUI scale: `▶` GIF (U+25B6), `⧈` Image (U+29C8), `☺` Emoji (U+263A), `✉` Discord (U+2709), and since 2026-10-28 `★` Sticker (U+2605; `✦` and `❖` aren't in the bitmap font).
 
 AWT: the client's `Main` sets `java.awt.headless=true` unconditionally, so `javax.imageio` never touches a window system; `FrameDecoder` still composites with plain `int[]` (no `Graphics2D`).
 
@@ -135,6 +135,13 @@ AWT: the client's `Main` sets `java.awt.headless=true` unconditionally, so `java
 - Checked with lossless fixtures built in the unit tests (`TestWebP`), a real lossy+alpha animated sample (gstatic.com/webp/animated/1.webp: 100 frames × 100 ms on 400×300, all frames clean), and an in-game decode in `ChatPreviewClientGameTest`.
 - Not exercised: launching the packaged jar itself (Loom 1.17 has no production-run task), so nested-jar loading relies on Fabric Loader's standard jar-in-jar handling.
 - License: BSD-3-Clause; the jars carry no license file, so its text ships as `META-INF/licenses/TwelveMonkeys-LICENSE.txt`.
+
+## Discord stickers and APNG (checked 2026-10-28)
+
+- **Sticker ids:** `discord.com/api/v10/sticker-packs` needs no login and lists 14 Nitro packs: 136 APNG stickers (format 2) and 225 Lottie (format 3). Server stickers can also be PNG (1) or GIF (4). The corpus (`corpus/sticker.txt`) is the 136 APNG ids in the link forms the Discord client uses, plus three stickers found with `gh search code`.
+- **What the CDN serves** (curl, from GB): `{cdn.discordapp.com,media.discordapp.net}/stickers/{id}.png` return the APNG itself, animated, whatever `size` asks for (always the original 320×320 for Nitro stickers); `size` does resize plain PNG stickers on media.discordapp.net. `&passthrough=false` and every `.webp` rendition (with or without `animated=true`) are stills. `.gif` answers 415 for a non-GIF sticker on media.discordapp.net and 404 on cdn.discordapp.com, which is why GIF stickers are rebuilt on media.discordapp.net (as Discord's API docs say). Lottie stickers are `.json` only: `.png` and `.webp` 404, so they can't be tokens.
+- **Not checked:** a real GIF sticker. None turned up in public code, so the `.gif` path rests on Discord's documentation and the 415 above.
+- **APNG:** ImageIO's PNG reader returns only the default image. `ApngAnimation` reads acTL/fcTL/fdAT and rebuilds each frame as a plain PNG (the file's IHDR with the frame's size, the chunks before the first IDAT, the frame's data as IDAT), which ImageIO decodes; `FrameDecoder.animate` composites it like GIF and WebP. Five real stickers decoded with every frame (25, 12, 50, 10 frames and one still); their delays were `3/38` s and `2/100` s, played as written. In game, `ChatPreviewClientGameTest` loads a 25-frame sticker over the network and screenshots it.
 
 ## Klipy API (docs.klipy.com, checked 2026-10-27)
 

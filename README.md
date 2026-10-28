@@ -10,12 +10,12 @@ Tokens look like `<~GXJtM2nNFCzT3etvzOBK~>`. They contain no links, so chat filt
 
 ## Features
 
-- **Previews** for Giphy, Imgur, Tenor, Discord emoji and attachments, Gyazo, Klipy, Postimages, ImgBB, and Catbox. Still images, animated GIFs, and animated WebP are all supported.
+- **Previews** for Giphy, Imgur, Tenor, Discord emoji, stickers and attachments, Gyazo, Klipy, Postimages, ImgBB, and Catbox. Still images, animated GIFs, animated WebP and animated PNG (APNG, which Discord stickers use) are all supported.
 - **Share page links work too.** Postimages (`postimg.cc/…`) and ImgBB (`ibb.co/…`) page links are looked up when you convert them, so you don't need to find the direct image address.
 - **Full-resolution drawing.** Previews are decoded at your screen's resolution and scaled smoothly.
 - **Auto-convert links.** Optionally turns links you send into tokens automatically. This also works in commands such as party chat (`/pc`) or `/msg`.
 - **Settings screen** with `/imgprev settings` or through Mod Menu, plus `/imgprev` chat commands for quick changes.
-- **Label colours.** Each kind of label (GIF, Image, Emoji, Discord) has its own colour. Pick a preset or type any hex colour.
+- **Label colours.** Each kind of label (GIF, Image, Emoji, Sticker, Discord) has its own colour. Pick a preset or type any hex colour.
 - **Client-side only.** Works on any server. The server only ever sees the token text.
 
 ## Installation
@@ -40,7 +40,7 @@ Requires Java 25.
 | `/imgprev shift on` | Only show previews while holding Shift |
 | `/imgprev autoconvert on` | Convert links when you send them |
 | `/imgprev site <name> on` / `off` | Turn a site's previews on or off |
-| `/imgprev colour <gif\|image\|emoji\|discord> <colour>` | Set a label colour: a preset such as `gold` or `orange`, or a hex colour like `#FF8800` |
+| `/imgprev colour <gif\|image\|emoji\|sticker\|discord> <colour>` | Set a label colour: a preset such as `gold` or `orange`, or a hex colour like `#FF8800` |
 | `/imgprev colour reset` | Put every label colour back to its default |
 | `/imgprev cache clear` | Free the image cache |
 

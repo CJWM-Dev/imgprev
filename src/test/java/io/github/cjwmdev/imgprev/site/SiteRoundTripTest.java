@@ -7,6 +7,7 @@ import static io.github.cjwmdev.imgprev.site.TestTokens.token;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.cjwmdev.imgprev.token.TokenCodec;
 import java.util.HashSet;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -44,6 +45,12 @@ class SiteRoundTripTest {
         https://cdn.discordapp.com/emojis/1234567890123456789.png?size=48 | https://cdn.discordapp.com/emojis/1234567890123456789.png?size=128
         https://cdn.discordapp.com/emojis/1234567890123456789.webp?size=48&animated=true | https://cdn.discordapp.com/emojis/1234567890123456789.gif?size=128
         https://media.discordapp.net/emojis/123456789012345678.webp?size=96&quality=lossless | https://cdn.discordapp.com/emojis/123456789012345678.png?size=128
+        # Discord stickers (APNG and PNG are both .png, the .webp rendition is a still, GIFs only load from media.discordapp.net)
+        https://media.discordapp.net/stickers/781291131828699156.png?size=160 | https://media.discordapp.net/stickers/781291131828699156.png?size=320
+        https://cdn.discordapp.com/stickers/781291131828699156.png | https://media.discordapp.net/stickers/781291131828699156.png?size=320
+        https://media.discordapp.net/stickers/781291131828699156.webp?size=160&quality=lossless | https://media.discordapp.net/stickers/781291131828699156.png?size=320
+        https://media.discordapp.net/stickers/1234567890123456789.gif | https://media.discordapp.net/stickers/1234567890123456789.gif?size=320
+        https://cdn.discordapp.com/stickers/1234567890123456789.GIF?size=160 | https://media.discordapp.net/stickers/1234567890123456789.gif?size=320
         # Gyazo (32-hex id is left-padded on decode)
         https://gyazo.com/0123456789abcdef0123456789abcdef | https://i.gyazo.com/0123456789abcdef0123456789abcdef.png
         https://i.gyazo.com/00000000000000000000000000000abc.jpg | https://i.gyazo.com/00000000000000000000000000000abc.jpg
@@ -73,9 +80,18 @@ class SiteRoundTripTest {
         assertTrue(giphy.startsWith("<~Gkj8RVuDxh4x7W") && giphy.length() == 19, giphy);
     }
 
+    @Test void stickersAreTheirOwnSite() {
+        assertEquals("sticker", media("https://media.discordapp.net/stickers/781291131828699156.png").codec().name());
+        assertEquals(Label.STICKER, media("https://media.discordapp.net/stickers/781291131828699156.png").codec().label());
+        // Lottie stickers are JSON: nothing to preview.
+        assertTrue(TokenCodec.encode("https://cdn.discordapp.com/stickers/796140620111544330.json").isEmpty());
+        assertTrue(TokenCodec.encode("https://media.discordapp.net/stickers/12345.png").isEmpty());
+    }
+
     @Test void downloadsStayOnSiteHosts() {
         for (String url : new String[] {"https://media4.giphy.com/media/kj8RVuDxh4x7W/giphy.gif", "https://imgur.com/AbC12xY",
                 "https://media.tenor.com/1S3s5iesWX0AAAAM/x.gif", "https://media.discordapp.net/emojis/123456789012345678.png",
+                "https://cdn.discordapp.com/stickers/781291131828699156.png", "https://cdn.discordapp.com/stickers/1234567890123456789.gif",
                 "https://gyazo.com/0123456789abcdef0123456789abcdef", "https://i.postimg.cc/XqRyT9nn/x.png",
                 "https://i.ibb.co/M5f2dMkG/Full-Moon.webp", "https://files.catbox.moe/sa4ue3.png"}) {
             var m = media(url);

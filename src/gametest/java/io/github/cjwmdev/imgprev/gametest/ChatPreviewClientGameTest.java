@@ -33,7 +33,9 @@ public final class ChatPreviewClientGameTest implements FabricClientGameTest {
     static final String TENOR = TokenCodec.encode("https://media.tenor.com/1S3s5iesWX0AAAAM/despierto-gato.gif").orElseThrow();
     // Tenor answers 404 for unknown keys; full-size Giphy GIFs answer 200 with a "content not available" GIF instead.
     static final String MISSING = TokenCodec.encode("https://media.tenor.com/ZZZZZnotreal0AAAAC/x.gif").orElseThrow();
-    static final String EXPIRED = TokenCodec.encode("https://cdn.discordapp.com/attachments/1100000000000000001/1300000000000000002/cat.png"
+    /** A Discord Nitro sticker: an APNG of 25 frames. */
+    static final String STICKER = TokenCodec.encode("https://media.discordapp.net/stickers/781291131828699156.png?size=160").orElseThrow();
+    static final String EXPIRED =TokenCodec.encode("https://cdn.discordapp.com/attachments/1100000000000000001/1300000000000000002/cat.png"
         + "?ex=66b847f9&is=66b6f679&hm=" + "ab".repeat(32) + "&").orElseThrow();   // signed August 2024, long expired
 
     @Override public void runTest(ClientGameTestContext ctx) {
@@ -49,6 +51,10 @@ public final class ChatPreviewClientGameTest implements FabricClientGameTest {
             typeInChat(ctx, "check " + GIF);
             ctx.waitFor(mc -> lastChat(mc).contains("check"));
             assertEquals("<Player0> check [▶ GIF]", lastChat(ctx), "player chat");
+
+            // A sticker relayed from Discord by a chat bridge bot, as Hypixel shows guild chat.
+            ctx.runOnClient(mc -> mc.gui.hud.getChat().addServerSystemMessage(Component.literal("Guild > [MVP+] BridgeBot [Staff]: Steve » " + STICKER)));
+            assertEquals("Guild > [MVP+] BridgeBot [Staff]: Steve » [★ Sticker]", lastChat(ctx), "sticker label");
             ctx.takeScreenshot("chat-labels");
 
             // --- Hover previews ---
@@ -84,6 +90,16 @@ public final class ChatPreviewClientGameTest implements FabricClientGameTest {
                 ctx.runOnClient(mc -> ImgPrevClient.CONFIG.cacheBudgetMB = 256);
                 ctx.waitTicks(2);
                 ctx.takeScreenshot("hover-tenor");
+
+                // Animated stickers are APNG, which ImageIO alone reads as a still.
+                hover(ctx, "sticker: ", STICKER, "probe-sticker");
+                ImageCache.Entry sticker = awaitLoaded(ctx, STICKER);
+                assertEquals(ImageCache.State.READY, sticker.state(), "sticker state (error: " + sticker.error() + ")");
+                assertEquals(25, sticker.texture().frameCount(), "sticker APNG frames");
+                ctx.waitTicks(2);
+                ctx.takeScreenshot("hover-sticker");
+                ctx.waitTicks(10);
+                ctx.takeScreenshot("hover-sticker-later");
 
                 hover(ctx, "missing: ", MISSING, "probe-missing");
                 ImageCache.Entry missing = awaitLoaded(ctx, MISSING);

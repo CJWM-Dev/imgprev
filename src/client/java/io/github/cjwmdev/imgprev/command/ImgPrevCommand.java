@@ -78,7 +78,7 @@ public final class ImgPrevCommand {
         return 1;
     }
 
-    /** {@code /imgprev colour <gif|image|emoji|discord> <name|#RRGGBB>} and {@code /imgprev colour reset}; "color" redirects here. */
+    /** {@code /imgprev colour <gif|image|emoji|sticker|discord> <name|#RRGGBB>} and {@code /imgprev colour reset}; "color" redirects here. */
     private static LiteralArgumentBuilder<FabricClientCommandSource> colour() {
         LiteralArgumentBuilder<FabricClientCommandSource> root = ClientCommands.literal("colour")
             .then(editing("reset", (src, cfg) -> {
@@ -110,7 +110,7 @@ public final class ImgPrevCommand {
         return Component.literal("[" + label.icon() + " " + ImgPrevConfig.colorName(c) + "]").withStyle(s -> s.withColor(c));
     }
 
-    /** " [▶ GIF] [⧈ Image] [☺ Emoji] [✉ Discord]", each in its colour. */
+    /** " [▶ GIF] [⧈ Image] [☺ Emoji] [★ Sticker] [✉ Discord]", each in its colour. */
     static Component allLabels(ImgPrevConfig cfg) {
         MutableComponent out = Component.empty();
         for (Label label : Label.values()) {
