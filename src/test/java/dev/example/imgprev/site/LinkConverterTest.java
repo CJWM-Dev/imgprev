@@ -1,12 +1,16 @@
 package dev.example.imgprev.site;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.example.imgprev.token.TokenCodec;
 import java.util.List;
 import java.util.concurrent.CompletionException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class LinkConverterTest {
     static final String GIPHY = "https://media.giphy.com/media/XJtM2nNFCzT3etvzOB/giphy.gif";
@@ -40,7 +44,28 @@ class LinkConverterTest {
 
     @Test void convertAllFailsWhenALookupCannotRun() {
         CompletionException e = assertThrows(CompletionException.class, () -> LinkConverter.convertAll("hi " + KLIPY_PAGE).join());
-        assertEquals(LinkConverter.KLIPY_NEEDS_KEY, LinkConverter.describe(e));
+        assertEquals(LinkConverter.KLIPY_PAGE_LINK, LinkConverter.describe(e));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"https://klipy.com/gifs/hello-hi-662", "https://www.klipy.com/gifs/hello-hi-662/", "https://KLIPY.com/gifs/hello-hi-662?ref=x"})
+    void klipyPageLinksAreRefusedWithAHint(String url) {
+        assertTrue(TokenCodec.encode(url).isEmpty(), url);
+        assertTrue(LinkConverter.needsLookup(url), url);
+        assertFalse(LinkConverter.canLookUp(url), url);
+        CompletionException e = assertThrows(CompletionException.class, () -> LinkConverter.convert(url).join());
+        assertEquals(LinkConverter.KLIPY_PAGE_LINK, LinkConverter.describe(e));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"https://klipy.com/clips/a-few-moments-later", "https://klipy.com/stickers/hello-hi-662",
+        "https://klipy.com/gifs/hi_there", "https://klipy.com/gifs/x", "https://evil.example/gifs/hello-hi-662"})
+    void otherKlipyLinksAreNotPageLinks(String url) {
+        assertFalse(LinkConverter.needsLookup(url), url);
+    }
+
+    @Test void oldKlipySlugTokensNoLongerDecode() {
+        assertTrue(TokenCodec.decode("<~1kred-moon-flyinga~>").isEmpty(), "made by 0.1.0; viewing one needed an API key");
     }
 
     @Test void singleLinkConvert() {

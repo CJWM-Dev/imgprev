@@ -38,9 +38,6 @@ public final class ConfigScreen {
             sites.addEntry(e.startBooleanToggle(text(siteTitle(c)), cfg.siteEnabled(c.code())).setDefaultValue(defaults.siteEnabled(c.code()))
                 .setSaveConsumer(v -> cfg.sites.put(String.valueOf(c.code()), v)).build());
         }
-        sites.addEntry(e.startStrField(text("Klipy API key"), cfg.klipyApiKey).setDefaultValue("")
-            .setTooltip(text("Only needed to send klipy.com page links, and to view old Klipy tokens."), text("Get one at partner.klipy.com."))
-            .setSaveConsumer(v -> cfg.klipyApiKey = v.strip()).build());
 
         ConfigCategory limits = builder.getOrCreateCategory(text("Limits"));
         limits.addEntry(e.startIntSlider(text("Preview size (px)"), cfg.maxDrawPx, 32, 512).setDefaultValue(defaults.maxDrawPx)
@@ -71,7 +68,6 @@ public final class ConfigScreen {
             case 'd' -> "Discord attachments";
             case 'z' -> "Gyazo";
             case 'y' -> "Klipy";
-            case 'k' -> "Klipy, old tokens (need your API key)";
             case 'p' -> "Postimages";
             case 'b' -> "ImgBB";
             case 'c' -> "Catbox";

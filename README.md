@@ -1,6 +1,6 @@
 # ImgPrev
 
-> **⚠️ Warning:** **Imgur is blocked in the UK**, so Imgur images won't load for UK players. Postimages, ImgBB and Catbox work in the UK and are supported. **Klipy page links need a Klipy API key** (`/imgprev klipy key <key>`). Without one, use the GIF's image address from the Klipy page instead.
+> **⚠️ Warning:** **Imgur is blocked in the UK**, so Imgur images won't load for UK players. Postimages, ImgBB and Catbox work in the UK and are supported. **Klipy page links** (`klipy.com/gifs/…`) can't be converted. Right-click the GIF and copy its image address instead.
 
 Hover previews for image links in Minecraft chat, for Fabric 26.2.
 
@@ -38,10 +38,9 @@ Requires Java 25.
 | `/imgprev shift on` | Only show previews while holding Shift |
 | `/imgprev autoconvert on` | Convert links when you send them |
 | `/imgprev site <name> on` / `off` | Turn a site's previews on or off |
-| `/imgprev klipy key <key>` | Set your Klipy API key |
 | `/imgprev cache clear` | Free the image cache |
 
-**Klipy page links** (`klipy.com/gifs/…`) need a Klipy API key to convert, because the GIF address has to be looked up. Set one with `/imgprev klipy key <key>`, or copy the GIF's image address from the Klipy page instead, which needs no key.
+**Klipy page links** (`klipy.com/gifs/…`) can't be converted, because Klipy only gives out the GIF's address through an API that needs a key. Right-click the GIF on the page and copy its image address (`static.klipy.com/…`) instead. That works for everyone, with no setup.
 
 ## Limits
 

@@ -125,7 +125,6 @@ public final class ImageCache {
         return switch (t) {
             case MediaException e -> e.getMessage();
             case SafeHttp.HttpStatusException e when m.codec().code() == 'd' && (e.status == 403 || e.status == 404) -> "Discord link expired";
-            case SafeHttp.HttpStatusException e when m.codec().code() == 'k' && (e.status == 401 || e.status == 403) -> "Klipy API key rejected";
             case SafeHttp.HttpStatusException e when e.status == 404 || e.status == 410 -> "Image not found";
             case SafeHttp.HttpStatusException e when e.status == 429 -> "Rate limited, try again later";
             case SafeHttp.HttpStatusException e -> "Couldn't load image (HTTP " + e.status + ")";

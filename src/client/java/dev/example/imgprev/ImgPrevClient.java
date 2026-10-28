@@ -6,7 +6,6 @@ import dev.example.imgprev.command.ImgPrevCommand;
 import dev.example.imgprev.config.ImgPrevConfig;
 import dev.example.imgprev.image.ImageCache;
 import dev.example.imgprev.render.ImageTooltip;
-import dev.example.imgprev.site.SiteRegistry;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import org.slf4j.Logger;
@@ -20,7 +19,6 @@ public final class ImgPrevClient implements ClientModInitializer {
     @Override public void onInitializeClient() {
         CONFIG = ImgPrevConfig.load();
         CACHE = new ImageCache();
-        SiteRegistry.klipyApiKey(() -> CONFIG.klipyApiKey);
         ImageTooltip.register();
         AutoConvert.register();
         ClientCommandRegistrationCallback.EVENT.register(ImgLinkCommand::register);

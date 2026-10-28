@@ -33,6 +33,14 @@ class ImgPrevConfigTest {
         assertEquals(8, cfg.maxDownloadMB);
     }
 
+    @Test void removedKlipyKeySettingsAreDropped() {
+        ImgPrevConfig cfg = parse("{\"klipyApiKey\": \"abcd1234efgh5678\", \"sites\": {\"k\": true, \"g\": false}}");   // as 0.2.0 wrote it
+        cfg.sanitize();
+        assertFalse(cfg.sites.containsKey("k"));
+        assertFalse(cfg.siteEnabled('g'), "other choices stay");
+        assertFalse(new Gson().toJson(cfg).contains("klipy"), "not written back");
+    }
+
     @Test void downloadLimitIsClamped() {
         ImgPrevConfig cfg = parse("{\"maxDownloadMB\": 1000}");
         cfg.sanitize();

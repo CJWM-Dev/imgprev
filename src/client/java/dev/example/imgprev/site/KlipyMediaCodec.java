@@ -14,12 +14,21 @@ import java.util.regex.Pattern;
  * Klipy CDN addresses, {@code static.klipy.com/ii/{32 hex}/{2 hex}/{2 hex}/{name}.{ext}}: viewers need no API key.
  * Payload: ext code {@code g|w|p|j} + Base62(hash) - Base62(the two 2-hex dirs) - name. static2 mirrors static
  * byte for byte, so everything is rebuilt on static.klipy.com.
+ * <p>
+ * klipy.com/gifs page links can't become tokens: the pages sit behind a Cloudflare bot check and the only other
+ * route is Klipy's API, which needs a key (docs/VERIFIED.md).
  */
 final class KlipyMediaCodec implements SiteCodec {
     static final Pattern PATH = Pattern.compile("^/ii/([0-9a-f]{32})/([0-9a-f]{2})/([0-9a-f]{2})/([A-Za-z0-9]{4,32})\\.((?i)gif|webp|png|jpe?g)$");
     static final Pattern P = Pattern.compile("[gwpj][0-9A-Za-z]{1,22}-[0-9A-Za-z]{1,3}-[A-Za-z0-9]{4,32}");
+    static final Pattern PAGE_PATH = Pattern.compile("^/gifs/[A-Za-z0-9-]{3,100}/?$");
     private static final Set<String> HOSTS = Set.of("static.klipy.com", "static1.klipy.com", "static2.klipy.com");
     private static final Set<String> DOWNLOAD = Set.of("static.klipy.com", "static2.klipy.com");
+    private static final Set<String> PAGE_HOSTS = Set.of("klipy.com", "www.klipy.com");
+
+    static boolean isPageLink(URI u) {
+        return u.getHost() != null && PAGE_HOSTS.contains(u.getHost().toLowerCase(Locale.ROOT)) && PAGE_PATH.matcher(u.getPath()).matches();
+    }
 
     public char code() { return 'y'; }
     public String name() { return "klipy"; }

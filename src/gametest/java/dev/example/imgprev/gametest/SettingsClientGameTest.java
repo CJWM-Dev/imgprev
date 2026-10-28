@@ -2,7 +2,6 @@ package dev.example.imgprev.gametest;
 
 import static dev.example.imgprev.gametest.ChatPreviewClientGameTest.GIF;
 import static dev.example.imgprev.gametest.ChatPreviewClientGameTest.IMG;
-import static dev.example.imgprev.gametest.ChatPreviewClientGameTest.awaitLoaded;
 import static dev.example.imgprev.gametest.ChatPreviewClientGameTest.cacheEntry;
 import static dev.example.imgprev.gametest.ChatPreviewClientGameTest.hover;
 import static dev.example.imgprev.gametest.GameTests.assertEquals;
@@ -13,7 +12,6 @@ import static dev.example.imgprev.gametest.GameTests.typeInChat;
 import dev.example.imgprev.ImgPrevClient;
 import dev.example.imgprev.config.ImgPrevConfig;
 import dev.example.imgprev.config.ModMenuIntegration;
-import dev.example.imgprev.image.ImageCache;
 import dev.example.imgprev.token.TokenCodec;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -27,8 +25,8 @@ import org.lwjgl.glfw.GLFW;
 
 /** /imgprev settings take effect, persist to config/imgprev.json, and reload from it. */
 public final class SettingsClientGameTest implements FabricClientGameTest {
-    /** An old Klipy slug token (ImgPrev 0.1.0 made these from klipy.com page links); viewing one needs an API key. */
-    static final String KLIPY = "<~1kred-moon-flyinga~>";
+    /** An old Klipy slug token (ImgPrev 0.1.0 made these from klipy.com page links). */
+    static final String OLD_KLIPY = "<~1kred-moon-flyinga~>";
 
     @Override public void runTest(ClientGameTestContext ctx) {
         try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
@@ -54,21 +52,9 @@ public final class SettingsClientGameTest implements FabricClientGameTest {
             assertEquals(false, ImgPrevConfig.load().sites.get("g"), "giphy off saved to disk");
             typeInChat(ctx, "/imgprev site giphy on");
 
-            // Klipy without a key explains itself, without any network call.
-            typeInChat(ctx, "/imgprev site klipy-api on");
-            assertEquals("klipy-api previews on (set a key: /imgprev klipy key <key>)", lastChat(ctx), "klipy hint");
-            ctx.setScreen(() -> new ChatScreen("", false));
-            hover(ctx, "klipy: ", KLIPY, "probe-klipy");
-            ImageCache.Entry klipy = awaitLoaded(ctx, KLIPY);
-            assertEquals("Klipy needs an API key (config)", klipy.error(), "klipy without key");
-            ctx.takeScreenshot("hover-klipy-no-key");
-            ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
-
-            typeInChat(ctx, "/imgprev klipy key abcd1234efgh5678");
-            assertEquals("abcd1234efgh5678", ctx.computeOnClient(mc -> ImgPrevClient.CONFIG.klipyApiKey), "key stored");
-            assertEquals("abcd1234efgh5678", ImgPrevConfig.load().klipyApiKey, "key saved");
-            typeInChat(ctx, "/imgprev klipy clear");
-            assertEquals("", ImgPrevConfig.load().klipyApiKey, "key cleared");
+            // Old Klipy slug tokens needed every viewer's own API key; they're plain text now.
+            system(ctx, "old " + OLD_KLIPY);
+            assertEquals("old " + OLD_KLIPY, lastChat(ctx), "old klipy token left as text");
 
             // Shift mode: hovering only hints, and nothing is downloaded.
             typeInChat(ctx, "/imgprev shift on");

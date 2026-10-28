@@ -1,7 +1,6 @@
 package dev.example.imgprev.site;
 
 import dev.example.imgprev.image.MediaException;
-import dev.example.imgprev.image.SafeHttp;
 import dev.example.imgprev.token.TokenCodec;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -18,13 +17,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Sender side: pasted links → tokens. Most links convert on the spot; page links are looked up first and become
- * CDN tokens, so the people reading them need nothing. Klipy pages use the sender's own API key; Postimages and
- * ImgBB pages just name their image.
+ * Sender side: pasted links → tokens. Most links convert on the spot; Postimages and ImgBB page links are looked up
+ * first and become CDN tokens, so the people reading them need nothing. Klipy page links can't be looked up at all
+ * (see {@link KlipyMediaCodec}), so they're refused with a hint instead of being sent as plain links.
  */
 public final class LinkConverter {
-    public static final String KLIPY_NEEDS_KEY =
-        "Klipy page links need your Klipy API key (/imgprev klipy key <key>). Or copy the GIF's image address instead.";
+    public static final String KLIPY_PAGE_LINK =
+        "Klipy page links can't be converted. Right-click the GIF on the page and copy its image address instead.";
     static final Pattern LINK = Pattern.compile("https://\\S+");
     static final String TRAILING = ".,!?;:)]}'\"";
 
@@ -33,28 +32,21 @@ public final class LinkConverter {
     private LinkConverter() {}
 
     /** True for links that can only become a token after a network lookup. */
-    public static boolean needsLookup(String url) { return klipySlug(url).isPresent() || page(url).isPresent(); }
+    public static boolean needsLookup(String url) { return isKlipyPage(url) || page(url).isPresent(); }
 
-    /** False while a lookup can't run: Klipy page links need the sender's API key. */
-    public static boolean canLookUp(String url) { return klipySlug(url).isEmpty() || KlipyCodec.hasApiKey(); }
+    /** False for links that need a lookup ImgPrev can't do: Klipy page links. */
+    public static boolean canLookUp(String url) { return !isKlipyPage(url); }
 
     /** Completes with the token, or fails with a {@link MediaException} whose message can be shown as-is. */
     public static CompletableFuture<String> convert(String url) {
         Optional<String> direct = TokenCodec.encode(url);
         if (direct.isPresent()) return CompletableFuture.completedFuture(direct.get());
-        Optional<String> slug = klipySlug(url);
-        if (slug.isPresent()) {
-            if (!canLookUp(url)) return CompletableFuture.failedFuture(new MediaException(KLIPY_NEEDS_KEY));
-            return token(SiteRegistry.KLIPY_API.mediaUri(slug.get()), "Klipy");
-        }
+        if (isKlipyPage(url)) return CompletableFuture.failedFuture(new MediaException(KLIPY_PAGE_LINK));
         Optional<Page> page = page(url);
-        if (page.isPresent()) return token(page.get().site().lookUp(page.get().id()), page.get().site().title());
-        return CompletableFuture.failedFuture(new MediaException("Not a supported image link"));
-    }
-
-    private static CompletableFuture<String> token(CompletableFuture<URI> media, String site) {
-        return media.thenApply(m -> TokenCodec.encode(m.toString())
-            .orElseThrow(() -> new CompletionException(new MediaException(site + " returned an address ImgPrev can't use"))));
+        if (page.isEmpty()) return CompletableFuture.failedFuture(new MediaException("Not a supported image link"));
+        IdPathCodec site = page.get().site();
+        return site.lookUp(page.get().id()).thenApply(m -> TokenCodec.encode(m.toString())
+            .orElseThrow(() -> new CompletionException(new MediaException(site.title() + " returned an address ImgPrev can't use"))));
     }
 
     /** {@code text} with every link that converts without a lookup replaced by its token. */
@@ -79,12 +71,7 @@ public final class LinkConverter {
     public static String describe(Throwable err) {
         Throwable t = err;
         while ((t instanceof CompletionException || t instanceof ExecutionException) && t.getCause() != null) t = t.getCause();
-        return switch (t) {
-            case MediaException e -> e.getMessage();
-            case SafeHttp.HttpStatusException e when e.status == 401 || e.status == 403 -> "Klipy API key rejected";
-            case SafeHttp.HttpStatusException e when e.status == 429 -> "Klipy rate limit reached, try again later";
-            default -> "Couldn't look up the Klipy GIF";
-        };
+        return t instanceof MediaException e ? e.getMessage() : "Couldn't look up the image";
     }
 
     /**
@@ -109,8 +96,8 @@ public final class LinkConverter {
         return out.append(text, last, text.length()).toString();
     }
 
-    static Optional<String> klipySlug(String url) {
-        try { return KlipyCodec.pageSlug(new URI(url)); } catch (URISyntaxException e) { return Optional.empty(); }
+    static boolean isKlipyPage(String url) {
+        try { return KlipyMediaCodec.isPageLink(new URI(url)); } catch (URISyntaxException e) { return false; }
     }
 
     static Optional<Page> page(String url) {

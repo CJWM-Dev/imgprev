@@ -39,7 +39,7 @@ public final class AutoConvert {
         List<String> lookups = LinkConverter.lookupsIn(text);
         if (lookups.isEmpty()) return fits(LinkConverter.convertNow(text), text, command);
         if (!lookups.stream().allMatch(LinkConverter::canLookUp)) {
-            refuse(text, command, LinkConverter.KLIPY_NEEDS_KEY);
+            refuse(text, command, LinkConverter.KLIPY_PAGE_LINK);
             return false;
         }
         Minecraft mc = Minecraft.getInstance();

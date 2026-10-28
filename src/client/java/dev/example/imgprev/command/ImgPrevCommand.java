@@ -1,7 +1,6 @@
 package dev.example.imgprev.command;
 
 import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import dev.example.imgprev.ImgPrevClient;
 import dev.example.imgprev.config.ImgPrevConfig;
@@ -41,16 +40,6 @@ public final class ImgPrevCommand {
                 .then(toggle("on", (src, cfg) -> { cfg.autoConvertLinks = true; src.sendFeedback(ok("Image links in messages you send become tokens")); }))
                 .then(toggle("off", (src, cfg) -> { cfg.autoConvertLinks = false; src.sendFeedback(ok("Links are sent as typed")); })))
             .then(site)
-            .then(ClientCommands.literal("klipy")
-                .then(ClientCommands.literal("key").then(ClientCommands.argument("key", StringArgumentType.word()).executes(c -> {
-                    ImgPrevConfig cfg = ImgPrevClient.CONFIG;
-                    cfg.klipyApiKey = StringArgumentType.getString(c, "key");
-                    cfg.sites.put("k", true);
-                    cfg.save();
-                    c.getSource().sendFeedback(ok("Klipy API key saved; Klipy previews on"));
-                    return 1;
-                })))
-                .then(toggle("clear", (src, cfg) -> { cfg.klipyApiKey = ""; src.sendFeedback(ok("Klipy API key removed")); })))
             .then(ClientCommands.literal("cache").then(ClientCommands.literal("clear").executes(c -> {
                 ImgPrevClient.CACHE.clear();
                 c.getSource().sendFeedback(ok("Preview cache cleared"));
@@ -75,8 +64,7 @@ public final class ImgPrevCommand {
 
     private static void setSite(FabricClientCommandSource src, ImgPrevConfig cfg, SiteCodec c, boolean on) {
         cfg.sites.put(String.valueOf(c.code()), on);
-        String note = on && c.code() == 'k' && cfg.klipyApiKey.isBlank() ? " (set a key: /imgprev klipy key <key>)" : "";
-        src.sendFeedback(ok(c.name() + " previews " + (on ? "on" : "off") + note));
+        src.sendFeedback(ok(c.name() + " previews " + (on ? "on" : "off")));
     }
 
     private static int status(FabricClientCommandSource src) {
@@ -88,8 +76,8 @@ public final class ImgPrevCommand {
         }
         src.sendFeedback(Component.literal("ImgPrev: previews " + (cfg.renderEnabled ? "on" : "off")
             + (cfg.requireShift ? ", Shift to preview" : "") + (cfg.autoConvertLinks ? ", auto-convert on" : "") + ". Sites:").append(sites));
-        src.sendFeedback(Component.literal(String.format("Cache: %d images, %.1f of %d MB. Klipy key: %s",
-            ImgPrevClient.CACHE.size(), ImgPrevClient.CACHE.usedBytes() / 1048576.0, cfg.cacheBudgetMB, cfg.klipyApiKey.isBlank() ? "none" : "set"))
+        src.sendFeedback(Component.literal(String.format("Cache: %d images, %.1f of %d MB",
+            ImgPrevClient.CACHE.size(), ImgPrevClient.CACHE.usedBytes() / 1048576.0, cfg.cacheBudgetMB))
             .withStyle(ChatFormatting.GRAY));
         return 1;
     }

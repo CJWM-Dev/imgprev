@@ -30,7 +30,6 @@ public final class ImgPrevConfig {
     public int maxDownloadMB = 32;
     public int maxDrawPx = 256;
     public Map<String, Boolean> sites = defaultSites();
-    public String klipyApiKey = "";
     /** Off by default: people without ImgPrev see the token instead of the link. */
     public boolean autoConvertLinks = false;
     /** Commands whose text is chat (Hypixel's party/guild/officer chat, private messages), converted like chat. */
@@ -39,7 +38,6 @@ public final class ImgPrevConfig {
     static Map<String, Boolean> defaultSites() {
         Map<String, Boolean> m = new LinkedHashMap<>();
         for (String code : new String[] {"g", "i", "t", "e", "d", "z", "y", "p", "b", "c"}) m.put(code, true);
-        m.put("k", false);   // old Klipy slug tokens: every viewer needs their own API key
         return m;
     }
 
@@ -82,7 +80,7 @@ public final class ImgPrevConfig {
         maxDrawPx = Math.clamp(maxDrawPx, 32, 512);
         if (sites == null) sites = new LinkedHashMap<>();
         defaultSites().forEach(sites::putIfAbsent);
-        if (klipyApiKey == null) klipyApiKey = "";
+        sites.remove("k");   // Klipy slug tokens, removed after 0.2.0; the old klipyApiKey field is dropped on the next save
         if (autoConvertCommands == null) autoConvertCommands = defaultCommands();
         autoConvertCommands.replaceAll(c -> c.strip().replaceFirst("^/", "").toLowerCase(Locale.ROOT));
         autoConvertCommands.removeIf(String::isEmpty);

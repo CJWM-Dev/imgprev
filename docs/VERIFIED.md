@@ -146,9 +146,22 @@ AWT: the client's `Main` sets `java.awt.headless=true` unconditionally, so `java
 - CDN addresses are `static{,1,2}.klipy.com/ii/{32 hex}/{2 hex}/{2 hex}/{name}.{ext}` (survey of ~4,000 on the homepage; GIF/WebP names are 8 characters). `static2` serves the same bytes as `static`; `static1` didn't resolve.
 - **Design change from the handoff:** slug tokens (`k`) made every *viewer* need their own API key, so on a fresh install Klipy tokens just showed as raw text (seen on Hypixel). New tokens carry the CDN address instead (site `y`, no key for anyone); the *sender's* key turns a page link into that address in `/imglink` and auto-convert. `k` stays decode-only for tokens made by 0.1.0.
 
+### Keyless page links? (checked 2026-10-28) — no; per-user keys removed
+
+Looked for a way to turn `klipy.com/gifs/{slug}` into a CDN address without a key, using ImgPrev's own UA only (no browser impersonation):
+
+- Every `/gifs/…` path, `/gifs/{slug}/embed` included, gets the Cloudflare challenge. Other klipy.com paths answer normally (`/embed/gifs/…`, `/oembed`, `/api/oembed` → 404), so the check is deliberate and only on GIF pages.
+- No oEmbed: `api.klipy.com/oembed` answers 204, the same as `api.klipy.com/` itself. The keyless Items API path 404s.
+- `sitemap.xml` → `gifs-0.xml` lists only 200 page URLs, with no `image:` entries.
+- The CDN path holds a 32-hex hash, so it can't be derived from the slug. The Tenor-compatible API (`/migrate-from-tenor`) needs a key too.
+- Klipy's model is one key **per platform**, not per user ("create your platform" in the Partner Panel). Testing keys allow 100 requests/hour; Production ("unlimited API requests") must be requested and approved. The integration requirements say API calls and media loads must come from the end user's app, which ImgPrev's sender-side lookup already does. They also say to use media URLs "as provided" and not to "reconstruct" them or "retain copies" of the media. `y` tokens rebuild the same path but move `static2` to `static`, and previews are kept in memory, so both points need raising with Klipy if applying for a key.
+- Discord's GIF picker switched from Tenor to Klipy after the Tenor API shut down on 2026-06-30, so Klipy GIFs are common. The link Discord hands out for them hasn't been checked.
+
+**Decision:** asking each player for their own key is something almost nobody does, and it isn't how Klipy issues keys, so the key setting, `/imgprev klipy`, and the `k` codec are gone. Page links are refused with a hint to copy the image address (auto-convert holds the message back as before). Keyless `y` tokens stay. If ImgPrev gets its own Production key, page lookups can come back using the bundled key.
+
 ## Sending (Fabric API 0.161.0, `fabric-message-api-v1`)
 
-`ClientPacketListener#sendChat` / `#sendCommand` fire `ALLOW_CHAT` → (if allowed) `MODIFY_CHAT` → `CHAT`, and the same for commands, all at HEAD before signing. Auto-convert replaces links in `MODIFY_*`; a message needing a Klipy lookup is cancelled in `ALLOW_*` and re-sent once converted (the re-send passes straight through, its links being tokens by then). The server refuses chat and commands over 256 characters.
+`ClientPacketListener#sendChat` / `#sendCommand` fire `ALLOW_CHAT` → (if allowed) `MODIFY_CHAT` → `CHAT`, and the same for commands, all at HEAD before signing. Auto-convert replaces links in `MODIFY_*`; a message needing a page lookup (Postimages, ImgBB) is cancelled in `ALLOW_*` and re-sent once converted (the re-send passes straight through, its links being tokens by then). The server refuses chat and commands over 256 characters.
 
 ## Settings screen (optional dependencies, checked 2026-10-27)
 

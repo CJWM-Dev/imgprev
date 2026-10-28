@@ -46,7 +46,7 @@ public final class ImgLinkCommand {
             return 0;
         }
         if (!LinkConverter.canLookUp(link)) {
-            src.sendError(Component.literal(LinkConverter.KLIPY_NEEDS_KEY));
+            src.sendError(Component.literal(LinkConverter.KLIPY_PAGE_LINK));
             return 0;
         }
         src.sendFeedback(Component.literal("Looking up the image…"));
