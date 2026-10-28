@@ -125,7 +125,7 @@ final class GameTests {
             int w = mc.getWindow().getGuiScaledWidth(), h = mc.getWindow().getGuiScaledHeight();
             // Scanning up from the bottom finds the text's bottom-left edge; step up and right into the glyphs.
             for (int y = h - 1; y > h / 3; y--) {
-                for (int x = 0; x < w / 2; x++) {
+                for (int x = 0; x < w; x++) {   // labels late in a long line (a bridge's guild chat) sit right of centre
                     if (tagged(mc, x, y, h, insertion) && tagged(mc, x + 3, y - 3, h, insertion)) return new int[] {x + 3, y - 3};
                 }
             }

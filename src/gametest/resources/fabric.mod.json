@@ -9,7 +9,8 @@
       "io.github.cjwmdev.imgprev.gametest.ImgLinkClientGameTest",
       "io.github.cjwmdev.imgprev.gametest.ChatPreviewClientGameTest",
       "io.github.cjwmdev.imgprev.gametest.SettingsClientGameTest",
-      "io.github.cjwmdev.imgprev.gametest.SendingClientGameTest"
+      "io.github.cjwmdev.imgprev.gametest.SendingClientGameTest",
+      "io.github.cjwmdev.imgprev.gametest.ChatLinesClientGameTest"
     ]
   },
   "depends": { "imgprev": "*" }
