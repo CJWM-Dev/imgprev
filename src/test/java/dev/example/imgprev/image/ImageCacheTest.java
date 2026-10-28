@@ -75,6 +75,21 @@ class ImageCacheTest {
         assertNull(cache.peek(gif(1).key()), "1 was still the oldest");
     }
 
+    @Test void loadsTakingOverFiveSecondsCountAsSlow() {
+        ImageCache.Entry e = hover(1);
+        assertFalse(cache.isSlow(e));
+        now.addAndGet(ImageCache.SLOW_MS);
+        assertFalse(cache.isSlow(e), "not at exactly 5 s");
+        now.addAndGet(1);
+        assertTrue(cache.isSlow(e));
+        finishLoad(0, 10);
+        assertFalse(cache.isSlow(e), "loaded");
+
+        for (int i = 2; i < 2 + ImageCache.MAX_LOADING; i++) hover(i);
+        now.addAndGet(ImageCache.SLOW_MS + 1);
+        assertFalse(cache.isSlow(hover(99)), "waiting for a slot hasn't started loading");
+    }
+
     @Test void failuresAreRetriedOnlyAfterAMinute() {
         hover(1);
         loads.get(0).future().completeExceptionally(new HttpTimeoutException("x"));

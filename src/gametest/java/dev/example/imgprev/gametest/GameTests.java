@@ -66,10 +66,20 @@ final class GameTests {
     /** Client-thread variant, usable inside {@code waitFor} predicates. */
     static String lastChat(Minecraft mc) { return lastChatLine(mc).getString(); }
 
-    @SuppressWarnings("unchecked")
     static Component lastChatLine(Minecraft mc) {
-        List<GuiMessage> all = (List<GuiMessage>) read(ChatComponent.class, "allMessages", mc.gui.hud.getChat());
-        return all.isEmpty() ? Component.empty() : all.getFirst().content();   // newest first
+        List<GuiMessage> all = allMessages(mc);
+        return all.isEmpty() ? Component.empty() : all.getFirst().content();
+    }
+
+    /** The newest {@code n} chat lines as text, newest first. */
+    static List<String> recentChat(ClientGameTestContext ctx, int n) {
+        return ctx.computeOnClient(mc -> allMessages(mc).stream().limit(n).map(m -> m.content().getString()).toList());
+    }
+
+    /** Newest first. */
+    @SuppressWarnings("unchecked")
+    private static List<GuiMessage> allMessages(Minecraft mc) {
+        return (List<GuiMessage>) read(ChatComponent.class, "allMessages", mc.gui.hud.getChat());
     }
 
     static String chatInput(ClientGameTestContext ctx) {

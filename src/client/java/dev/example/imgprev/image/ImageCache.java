@@ -30,6 +30,8 @@ public final class ImageCache {
     public enum State { LOADING, READY, FAILED }
 
     static final long RETRY_MS = 60_000;
+    /** A load taking longer than this shows a "still loading" message instead of the plain one. */
+    public static final long SLOW_MS = 5_000;
     /** Loads (download + decode) running at once. More hovers wait for a slot, so sweeping the cursor over chat can't queue them all. */
     static final int MAX_LOADING = 4;
     /** Entries kept without a texture (failed links) before the oldest are forgotten. */
@@ -43,6 +45,8 @@ public final class ImageCache {
         private @Nullable AnimatedTexture texture;
         private String error = "";
         private long failedAt;
+        /** When its load started; -1 for {@link #WAITING}, which hasn't. */
+        private long startedAt = -1;
         /** Source size, and the pixel box the texture was decoded to fit. */
         private int srcW, srcH, pxW, pxH;
         private boolean upgrading;
@@ -129,8 +133,14 @@ public final class ImageCache {
         return boxLimited && e.texture.textureW() == fitted[0];
     }
 
+    /** Still loading after {@link #SLOW_MS}: the tooltip says so, so a slow site doesn't look stuck. */
+    public boolean isSlow(Entry e) {
+        return e.state == State.LOADING && e.startedAt >= 0 && clock.getAsLong() - e.startedAt > SLOW_MS;
+    }
+
     private void start(ResolvedMedia m, Entry target, @Nullable Entry replacing, int boxW, int boxH, int pxW, int pxH) {
         loading++;
+        target.startedAt = clock.getAsLong();
         CompletableFuture<Decoded> f;
         try { f = loader.load(m, pxW, pxH); } catch (RuntimeException ex) { f = CompletableFuture.failedFuture(ex); }
         f.whenComplete((d, err) -> renderThread.execute(() -> finish(m, target, replacing, d, err, boxW, boxH, pxW, pxH)));

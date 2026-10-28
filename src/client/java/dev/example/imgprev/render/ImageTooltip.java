@@ -58,7 +58,7 @@ public final class ImageTooltip {
         int[] box = box();
         ImageCache.Entry e = ImgPrevClient.CACHE.getOrStart(media, box[0], box[1], Minecraft.getInstance().getWindow().getGuiScale());
         switch (e.state()) {
-            case LOADING -> text(g, font, "Loading image…", mx, my);
+            case LOADING -> text(g, font, ImgPrevClient.CACHE.isSlow(e) ? "Still loading… the site is slow to answer" : "Loading image…", mx, my);
             case FAILED -> text(g, font, e.error(), mx, my);
             case READY -> g.setTooltipForNextFrame(font, List.of(), Optional.of(new Preview(e.texture())), mx, my);
         }

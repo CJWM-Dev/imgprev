@@ -8,12 +8,14 @@ import static dev.example.imgprev.gametest.GameTests.clipboard;
 import static dev.example.imgprev.gametest.GameTests.hover;
 import static dev.example.imgprev.gametest.GameTests.lastChat;
 import static dev.example.imgprev.gametest.GameTests.live;
+import static dev.example.imgprev.gametest.GameTests.recentChat;
 import static dev.example.imgprev.gametest.GameTests.setClipboard;
 import static dev.example.imgprev.gametest.GameTests.typeInChat;
 
 import dev.example.imgprev.image.ImageCache;
 import dev.example.imgprev.site.LinkConverter;
 import dev.example.imgprev.token.TokenCodec;
+import java.util.List;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
@@ -88,9 +90,10 @@ public final class SendingClientGameTest implements FabricClientGameTest {
             if (live()) {
                 // A page link holds the message back, says so, and sends it once looked up.
                 typeInChat(ctx, "page " + POSTIMAGES_PAGE);
-                assertEquals("Looking up the image before sending…", lastChat(ctx), "lookup notice");
                 ctx.waitFor(mc -> lastChat(mc).startsWith("<Player0> page"));
-                assertEquals("<Player0> page [⧈ Image]", lastChat(ctx), "sent once converted");
+                // A fast lookup can be sent before this test looks, so check the notice came just before it.
+                assertEquals(List.of("<Player0> page [⧈ Image]", "Looking up the image before sending…"), recentChat(ctx, 2),
+                    "notice, then the message once converted");
             }
 
             // A message that can't be converted isn't sent; it goes back in the chat box.

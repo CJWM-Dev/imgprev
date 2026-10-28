@@ -37,9 +37,10 @@ public final class SafeHttp {
     static final int MAX_REDIRECTS = 3;
     /** Bodies of redirects and errors are read up to this much, then dropped. */
     static final int DISCARD_BYTES = 64 << 10;
-    static final Timeouts TIMEOUTS = new Timeouts(Duration.ofSeconds(10), Duration.ofSeconds(10), Duration.ofSeconds(120));
-    static final HttpClient HTTP = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER)
-        .connectTimeout(Duration.ofSeconds(5)).build();
+    /** Each wait gets 30 s before the download counts as failed; image CDNs have been seen taking 20 s or more just to connect. */
+    static final Duration WAIT = Duration.ofSeconds(30);
+    static final Timeouts TIMEOUTS = new Timeouts(WAIT, WAIT, Duration.ofSeconds(120));
+    static final HttpClient HTTP = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).connectTimeout(WAIT).build();
     /** Two downloads at a time. */
     static final ExecutorService POOL = Executors.newFixedThreadPool(2, daemon("imgprev-dl"));
 
