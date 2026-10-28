@@ -161,4 +161,20 @@ class ImageCacheTest {
         assertEquals("Couldn't decode image", ImageCache.describe(gif(1), new javax.imageio.IIOException("bad")));
         assertEquals("Couldn't load image", ImageCache.describe(gif(1), new IllegalStateException()));
     }
+
+    @Test void decodingCopiesPixelsIntoNativeImagesExactly() throws Exception {
+        int[] argb = {0xFFFF0000, 0x80FF8800, 0x00000000, 0xFF0000FF, 0x40123456, 0xFFFFFFFF};
+        java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(3, 2, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        img.setRGB(0, 0, 3, 2, argb, 0, 3);
+        java.io.ByteArrayOutputStream png = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(img, "png", png);
+
+        ImageCache.Decoded d = ImageCache.decode(png.toByteArray(), 256, 256);
+        try {
+            int[] expected = FrameDecoder.decode(png.toByteArray(), 256, 256).frames().getFirst();
+            for (int i = 0; i < argb.length; i++) assertEquals(expected[i], d.images()[0].getPixel(i % 3, i / 3), "pixel " + i);
+        } finally {
+            AnimatedTexture.close(d.images());
+        }
+    }
 }

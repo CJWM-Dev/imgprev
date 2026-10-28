@@ -6,6 +6,7 @@ import dev.example.imgprev.token.ResolvedMedia;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpTimeoutException;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -210,29 +211,33 @@ public final class ImageCache {
             .thenApplyAsync(bytes -> decode(bytes, pxW, pxH), DECODE);
     }
 
+    /** Decodes straight into native images, one frame at a time; nothing is left allocated if it fails partway. */
     static Decoded decode(byte[] bytes, int maxW, int maxH) {
+        List<NativeImage> made = new ArrayList<>();
         try {
-            FrameDecoder.Frames f = FrameDecoder.decode(bytes, maxW, maxH);
-            return new Decoded(f.w(), f.h(), f.srcW(), f.srcH(), f.delaysMs(), toImages(f.frames(), f.w(), f.h()));
+            FrameDecoder.Frames<NativeImage> f = FrameDecoder.decode(bytes, maxW, maxH, (px, w, h) -> {
+                NativeImage img = toImage(px, w, h);
+                made.add(img);
+                return img;
+            });
+            return new Decoded(f.w(), f.h(), f.srcW(), f.srcH(), f.delaysMs(), f.frames().toArray(NativeImage[]::new));
         } catch (IOException ex) {
+            made.forEach(NativeImage::close);
             throw new CompletionException(ex);
+        } catch (RuntimeException | Error ex) {
+            made.forEach(NativeImage::close);
+            throw ex;
         }
     }
 
-    /** Copies ARGB frames into native RGBA images; nothing is left allocated if one fails. */
-    static NativeImage[] toImages(List<int[]> frames, int w, int h) {
-        NativeImage[] out = new NativeImage[frames.size()];
-        try {
-            for (int i = 0; i < out.length; i++) {
-                int[] px = frames.get(i);
-                out[i] = new NativeImage(w, h, false);
-                for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) out[i].setPixel(x, y, px[y * w + x]);   // ARGB in
-            }
-            return out;
-        } catch (RuntimeException | Error e) {
-            AnimatedTexture.close(out);
-            throw e;
-        }
+    /**
+     * ARGB pixels into a native RGBA image. A bulk copy through the raw pointer measured no faster (about 4 ms per
+     * 2048×2048 frame either way), so this keeps NativeImage's bounds-checked setPixel.
+     */
+    static NativeImage toImage(int[] argb, int w, int h) {
+        NativeImage img = new NativeImage(w, h, false);
+        for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) img.setPixel(x, y, argb[y * w + x]);   // ARGB in
+        return img;
     }
 
     static String describe(ResolvedMedia m, @Nullable Throwable err) {

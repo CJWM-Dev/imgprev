@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 class WebPDecodeTest {
     static final int RED = 0xFFFF0000, BLUE = 0xFF0000FF, HALF_GREEN = 0x8000FF00, CLEAR = 0;
 
-    static int px(FrameDecoder.Frames f, int frame, int x, int y) { return f.frames().get(frame)[y * f.w() + x]; }
+    static int px(FrameDecoder.Frames<int[]> f, int frame, int x, int y) { return f.frames().get(frame)[y * f.w() + x]; }
 
     static void assertArgbNear(int expected, int actual) {
         for (int shift = 0; shift < 32; shift += 8) {
@@ -25,7 +25,7 @@ class WebPDecodeTest {
     }
 
     @Test void stillLosslessIsDecodedAndScaled() throws IOException {
-        FrameDecoder.Frames f = FrameDecoder.decode(TestWebP.still(300, 150, RED), 256, 256);
+        FrameDecoder.Frames<int[]> f = FrameDecoder.decode(TestWebP.still(300, 150, RED), 256, 256);
         assertEquals(256, f.w());
         assertEquals(128, f.h());
         assertEquals(1, f.count());
@@ -33,7 +33,7 @@ class WebPDecodeTest {
     }
 
     @Test void stillKeepsAlpha() throws IOException {
-        FrameDecoder.Frames f = FrameDecoder.decode(TestWebP.still(4, 4, HALF_GREEN), 256, 256);
+        FrameDecoder.Frames<int[]> f = FrameDecoder.decode(TestWebP.still(4, 4, HALF_GREEN), 256, 256);
         assertEquals(HALF_GREEN, f.frames().getFirst()[0]);
     }
 
@@ -49,7 +49,7 @@ class WebPDecodeTest {
     }
 
     @Test void animatedCompositesBlendsAndDisposes() throws IOException {
-        FrameDecoder.Frames f = FrameDecoder.decode(TestWebP.animated(4, 4,
+        FrameDecoder.Frames<int[]> f = FrameDecoder.decode(TestWebP.animated(4, 4,
             new Frame(0, 0, 4, 4, RED, 50, true, false),
             new Frame(2, 2, 2, 2, BLUE, 10, true, true),          // disposed to transparent after it shows
             new Frame(0, 0, 2, 2, HALF_GREEN, 200, true, false)   // alpha-blended over red
@@ -65,7 +65,7 @@ class WebPDecodeTest {
     }
 
     @Test void noBlendReplacesPixels() throws IOException {
-        FrameDecoder.Frames f = FrameDecoder.decode(TestWebP.animated(4, 4,
+        FrameDecoder.Frames<int[]> f = FrameDecoder.decode(TestWebP.animated(4, 4,
             new Frame(0, 0, 4, 4, RED, 100, true, false),
             new Frame(0, 0, 2, 2, HALF_GREEN, 100, false, false)), 256, 256);
         assertEquals(HALF_GREEN, px(f, 1, 0, 0));

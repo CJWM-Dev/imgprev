@@ -91,7 +91,7 @@ public final class ChatPreviewClientGameTest implements FabricClientGameTest {
             ctx.runOnClient(mc -> ImgPrevClient.CACHE.clear());
 
             // The bundled WebP reader registers and decodes under Fabric's class loading, not only in unit tests.
-            FrameDecoder.Frames webp;
+            FrameDecoder.Frames<int[]> webp;
             try { webp = FrameDecoder.decode(Base64.getDecoder().decode(WEBP_4X4_RED_THEN_BLUE), 256, 256); }
             catch (IOException e) { throw new AssertionError("WebP decode in game", e); }
             assertEquals(2, webp.count(), "webp frames");

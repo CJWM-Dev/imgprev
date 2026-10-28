@@ -63,10 +63,10 @@ class FrameDecoderTest {
         return bos.toByteArray();
     }
 
-    static int px(FrameDecoder.Frames f, int frame, int x, int y) { return f.frames().get(frame)[y * f.w() + x]; }
+    static int px(FrameDecoder.Frames<int[]> f, int frame, int x, int y) { return f.frames().get(frame)[y * f.w() + x]; }
 
     @Test void stillImageIsScaledToFit() throws IOException {
-        FrameDecoder.Frames f = FrameDecoder.decode(png(solid(600, 300, RED)), 256, 256);
+        FrameDecoder.Frames<int[]> f = FrameDecoder.decode(png(solid(600, 300, RED)), 256, 256);
         assertEquals(256, f.w());
         assertEquals(128, f.h());
         assertEquals(1, f.count());
@@ -74,13 +74,13 @@ class FrameDecoderTest {
     }
 
     @Test void smallImagesAreNotUpscaled() throws IOException {
-        FrameDecoder.Frames f = FrameDecoder.decode(png(solid(40, 20, BLUE)), 256, 256);
+        FrameDecoder.Frames<int[]> f = FrameDecoder.decode(png(solid(40, 20, BLUE)), 256, 256);
         assertEquals(40, f.w());
         assertEquals(20, f.h());
     }
 
     @Test void fitsTheNarrowerSideOfTheBox() throws IOException {
-        FrameDecoder.Frames f = FrameDecoder.decode(png(solid(600, 300, RED)), 1024, 100);
+        FrameDecoder.Frames<int[]> f = FrameDecoder.decode(png(solid(600, 300, RED)), 1024, 100);
         assertEquals(200, f.w());
         assertEquals(100, f.h());
         assertEquals(600, f.srcW());
@@ -88,9 +88,24 @@ class FrameDecoderTest {
     }
 
     @Test void largeSourcesAreAccepted() throws IOException {
-        FrameDecoder.Frames f = FrameDecoder.decode(png(solid(4000, 3000, RED)), 1024, 1024);   // phone photo size
+        FrameDecoder.Frames<int[]> f = FrameDecoder.decode(png(solid(4000, 3000, RED)), 1024, 1024);   // phone photo size
         assertEquals(1024, f.w());
         assertEquals(768, f.h());
+    }
+
+    @Test void bigStillsAreReadSubsampledButComeOutTheSame() throws IOException {
+        FrameDecoder.Frames<int[]> f = FrameDecoder.decode(png(solid(4000, 3000, BLUE)), 256, 256);
+        assertEquals(256, f.w());
+        assertEquals(192, f.h());
+        assertEquals(4000, f.srcW(), "the original size is still reported");
+        assertTrue(Arrays.stream(f.frames().getFirst()).allMatch(p -> p == BLUE));
+    }
+
+    @Test void subsamplingAlwaysLeavesThreefoldFiltering() {
+        assertEquals(2, FrameDecoder.subsampleStep(3840, 1725, 512, 230));
+        assertEquals(5, FrameDecoder.subsampleStep(4000, 3000, 256, 192));
+        assertEquals(1, FrameDecoder.subsampleStep(4000, 3000, 1024, 768), "under 6× smaller: every pixel is read");
+        assertEquals(1, FrameDecoder.subsampleStep(40, 20, 40, 20));
     }
 
     @Test void oversizeRejectedFromHeader() throws IOException {
@@ -105,7 +120,7 @@ class FrameDecoderTest {
     }
 
     @Test void gifCompositesOffsetsDelaysAndRestoreToBackground() throws IOException {
-        FrameDecoder.Frames f = FrameDecoder.decode(gif(
+        FrameDecoder.Frames<int[]> f = FrameDecoder.decode(gif(
             new Frame(solid(4, 4, RED), 0, 0, 5, "none"),
             new Frame(solid(2, 2, BLUE), 2, 2, 1, "restoreToBackgroundColor"),
             new Frame(solid(1, 1, GREEN), 0, 0, 20, "none")), 256, 256);
@@ -121,7 +136,7 @@ class FrameDecoderTest {
     }
 
     @Test void gifRestoreToPrevious() throws IOException {
-        FrameDecoder.Frames f = FrameDecoder.decode(gif(
+        FrameDecoder.Frames<int[]> f = FrameDecoder.decode(gif(
             new Frame(solid(4, 4, RED), 0, 0, 10, "none"),
             new Frame(solid(4, 4, BLUE), 0, 0, 10, "restoreToPrevious"),
             new Frame(solid(1, 1, GREEN), 0, 0, 10, "none")), 256, 256);
@@ -133,7 +148,7 @@ class FrameDecoderTest {
     @Test void longGifsDropFramesButKeepTotalDuration() throws IOException {
         Frame[] frames = new Frame[2 * FrameDecoder.MAX_FRAMES];
         for (int i = 0; i < frames.length; i++) frames[i] = new Frame(solid(2, 2, i % 2 == 0 ? RED : BLUE), 0, 0, 3, "none");
-        FrameDecoder.Frames f = FrameDecoder.decode(gif(frames), 256, 256);
+        FrameDecoder.Frames<int[]> f = FrameDecoder.decode(gif(frames), 256, 256);
         assertEquals(FrameDecoder.MAX_FRAMES, f.count());   // every 2nd frame
         assertTrue(Arrays.stream(f.delaysMs()).allMatch(d -> d == 60));
         assertEquals(frames.length * 30, Arrays.stream(f.delaysMs()).sum());
@@ -142,7 +157,7 @@ class FrameDecoderTest {
     @Test void largeFramesAreAllKept() throws IOException {
         Frame[] frames = new Frame[40];
         for (int i = 0; i < frames.length; i++) frames[i] = new Frame(solid(300, 300, i % 2 == 0 ? RED : BLUE), 0, 0, 10, "none");
-        FrameDecoder.Frames f = FrameDecoder.decode(gif(frames), 1024, 1024);
+        FrameDecoder.Frames<int[]> f = FrameDecoder.decode(gif(frames), 1024, 1024);
         assertEquals(300, f.h());
         assertEquals(40, f.count());
         assertEquals(BLUE, px(f, 39, 299, 299));
