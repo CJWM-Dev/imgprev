@@ -20,7 +20,7 @@ import javax.imageio.stream.MemoryCacheImageInputStream;
 import org.jspecify.annotations.Nullable;
 
 /**
- * GIF/PNG/JPEG/WebP bytes → frames scaled to fit a {@code maxW × maxH} box. Runs off-thread.
+ * GIF/PNG/APNG/JPEG/WebP bytes → frames scaled to fit a {@code maxW × maxH} box. Runs off-thread.
  * Pure Java: javax.imageio (+ the bundled TwelveMonkeys WebP reader) for decoding, plain int[] for
  * compositing/scaling (no AWT drawing, no Toolkit).
  */
@@ -71,6 +71,10 @@ public final class FrameDecoder {
     @FunctionalInterface
     interface Placements { Placement at(int index) throws IOException; }
 
+    /** Source frame {@code index}, checked with {@link #checkSize} before its pixels are decoded. */
+    @FunctionalInterface
+    interface SourceFrames { BufferedImage read(int index) throws IOException; }
+
     /** Frames as ARGB {@code int[]}s. */
     public static Frames<int[]> decode(byte[] data, int maxW, int maxH) throws IOException {
         return decode(data, maxW, maxH, (px, w, h) -> px);
@@ -89,6 +93,10 @@ public final class FrameDecoder {
                     case "webp" -> {
                         WebPAnimation anim = WebPAnimation.parse(data);
                         yield anim == null ? still(reader, maxW, maxH, sink) : webp(reader, anim, maxW, maxH, sink);
+                    }
+                    case "png" -> {
+                        ApngAnimation anim = ApngAnimation.parse(data);
+                        yield anim == null ? still(reader, maxW, maxH, sink) : apng(anim, maxW, maxH, sink);
                     }
                     default -> still(reader, maxW, maxH, sink);
                 };
@@ -120,20 +128,49 @@ public final class FrameDecoder {
         int[] screen = logicalScreen(reader);
         int total;
         try { total = reader.getNumImages(true); } catch (IOException e) { total = -1; }   // -1: unknown, read until it stops
-        return animate(reader, screen[0], screen[1], total, maxW, maxH, sink,
+        return animate(frames(reader), screen[0], screen[1], total, maxW, maxH, sink,
             i -> gifPlacement((IIOMetadataNode) reader.getImageMetadata(i).getAsTree(GIF_IMAGE)));
     }
 
     static <T> Frames<T> webp(ImageReader reader, WebPAnimation anim, int maxW, int maxH, FrameSink<T> sink) throws IOException {
         List<WebPAnimation.Frame> frames = anim.frames();
-        return animate(reader, anim.canvasW(), anim.canvasH(), frames.size(), maxW, maxH, sink, i -> {
+        return animate(frames(reader), anim.canvasW(), anim.canvasH(), frames.size(), maxW, maxH, sink, i -> {
             WebPAnimation.Frame f = frames.get(i);
             return new Placement(f.x(), f.y(), normalizeDelay(f.durationMs()), f.dispose() ? Dispose.BACKGROUND : Dispose.NONE, f.blend());
         });
     }
 
+    /** Each frame is decoded as a PNG of its own; ImageIO's reader only sees an APNG's default image. */
+    static <T> Frames<T> apng(ApngAnimation anim, int maxW, int maxH, FrameSink<T> sink) throws IOException {
+        List<ApngAnimation.Frame> frames = anim.frames();
+        SourceFrames source = i -> {
+            ApngAnimation.Frame f = frames.get(i);
+            checkSize(f.w(), f.h());
+            BufferedImage img = ImageIO.read(new ByteArrayInputStream(anim.png(i)));
+            if (img == null) throw new IOException("APNG frame " + i + " didn't decode");
+            return img;
+        };
+        return animate(source, anim.canvasW(), anim.canvasH(), frames.size(), maxW, maxH, sink, i -> {
+            ApngAnimation.Frame f = frames.get(i);
+            Dispose dispose = switch (f.dispose()) {
+                case 1 -> Dispose.BACKGROUND;
+                // The spec reads a first frame's "previous" as "background": there is nothing before it to go back to.
+                case 2 -> i == 0 ? Dispose.BACKGROUND : Dispose.PREVIOUS;
+                default -> Dispose.NONE;
+            };
+            return new Placement(f.x(), f.y(), normalizeDelay(f.delayMs()), dispose, f.blend() == 1);
+        });
+    }
+
+    static SourceFrames frames(ImageReader reader) {
+        return i -> {
+            checkSize(reader.getWidth(i), reader.getHeight(i));
+            return reader.read(i);
+        };
+    }
+
     /** Composites source frames on a canvas; long animations keep every step-th frame and fold in the dropped frames' time. */
-    static <T> Frames<T> animate(ImageReader reader, int cw, int ch, int total, int maxW, int maxH, FrameSink<T> sink,
+    static <T> Frames<T> animate(SourceFrames source, int cw, int ch, int total, int maxW, int maxH, FrameSink<T> sink,
                                  Placements placements) throws IOException {
         checkSize(cw, ch);
         int sourceFrames = sourceFrames(total, cw, ch);
@@ -150,8 +187,7 @@ public final class FrameDecoder {
             BufferedImage img;
             Placement p;
             try {
-                checkSize(reader.getWidth(i), reader.getHeight(i));
-                img = reader.read(i);
+                img = source.read(i);
                 p = placements.at(i);
             } catch (IndexOutOfBoundsException e) {
                 break;
