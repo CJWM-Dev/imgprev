@@ -83,10 +83,10 @@ public final class ImageTooltip {
         g.setTooltipForNextFrame(font, Component.literal(message).withStyle(ChatFormatting.GRAY), mx, my);
     }
 
-    /** Largest preview in GUI units: the configured size, but at most half the screen's width and 60% of its height. */
+    /** Largest preview in GUI units: the configured size times the scale, but at most half the screen's width and 60% of its height. */
     static int[] box() {
         Window win = Minecraft.getInstance().getWindow();
-        int max = ImgPrevClient.CONFIG.maxDrawPx;
+        int max = (int) Math.round(ImgPrevClient.CONFIG.maxDrawPx * ImgPrevClient.CONFIG.previewScale());
         return new int[] {Math.clamp(win.getGuiScaledWidth() / 2, 1, max), Math.clamp(win.getGuiScaledHeight() * 3 / 5, 1, max)};
     }
 
@@ -100,10 +100,12 @@ public final class ImageTooltip {
             texture.draw(g, x, y, size[0], size[1], Util.getMillis());
         }
 
-        /** The size it was loaded for, shrunk if the window or settings have since made the box smaller. */
+        /** The size it was loaded for, times the scale setting, shrunk if the window or settings have made the box smaller. */
         private int[] size() {
             int[] box = box();
-            return FrameDecoder.fit(texture.displayW(), texture.displayH(), box[0], box[1]);
+            double scale = ImgPrevClient.CONFIG.previewScale();
+            int w = Math.max(1, (int) Math.round(texture.displayW() * scale)), h = Math.max(1, (int) Math.round(texture.displayH() * scale));
+            return FrameDecoder.fit(w, h, box[0], box[1]);
         }
     }
 }

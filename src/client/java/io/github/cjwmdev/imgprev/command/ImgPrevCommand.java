@@ -1,6 +1,7 @@
 package io.github.cjwmdev.imgprev.command;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.tree.LiteralCommandNode;
@@ -44,6 +45,14 @@ public final class ImgPrevCommand {
             .executes(c -> status(c.getSource()))
             .then(ClientCommands.literal("settings").executes(c -> openSettings(c.getSource())))
             .then(colour)
+            .then(ClientCommands.literal("scale").then(ClientCommands.argument("percent",
+                    IntegerArgumentType.integer(ImgPrevConfig.MIN_SCALE_PERCENT, ImgPrevConfig.MAX_SCALE_PERCENT)).executes(c -> {
+                int percent = IntegerArgumentType.getInteger(c, "percent");
+                ImgPrevClient.CONFIG.previewScalePercent = percent;
+                ImgPrevClient.CONFIG.save();
+                c.getSource().sendFeedback(Component.literal("Previews are now drawn at " + percent + "%"));
+                return 1;
+            })))
             .then(ClientCommands.literal("color").redirect(colour))
             .then(editing("on", (src, cfg) -> { cfg.renderEnabled = true; src.sendFeedback(Component.literal("Image previews on")); }))
             .then(editing("off", (src, cfg) -> { cfg.renderEnabled = false; src.sendFeedback(Component.literal("Image previews off")); }))

@@ -42,6 +42,7 @@ Requires Java 25.
 | `/imgprev site <name> on` / `off` | Turn a site's previews on or off |
 | `/imgprev colour <gif\|image\|emoji\|sticker\|discord> <colour>` | Set a label colour: a preset such as `gold` or `orange`, or a hex colour like `#FF8800` |
 | `/imgprev colour reset` | Put every label colour back to its default |
+| `/imgprev scale <25-400>` | Make previews bigger or smaller, as a percentage |
 | `/imgprev cache clear` | Free the image cache |
 
 **Klipy page links** (`klipy.com/gifs/…`) can't be converted, because Klipy only gives out the GIF's address through an API that needs a key. Right-click the GIF on the page and copy its image address (`static.klipy.com/…`) instead. That works for everyone, with no setup.
@@ -52,6 +53,7 @@ These are adjustable in the settings screen:
 
 - **Largest download:** 32 MB by default, up to 128 MB.
 - **Image memory:** 256 MB by default. Older previews are dropped when this fills up.
+- **Preview scale:** 100% by default, 25–400% (`/imgprev scale <percent>`). Makes previews bigger or smaller, small images included.
 - **Preview size:** up to 256 GUI pixels by default. Previews are never bigger than half the screen's width or 60% of its height.
 
 ## Building from source

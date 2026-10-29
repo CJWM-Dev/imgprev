@@ -33,6 +33,7 @@ public final class ImgPrevConfig {
     private static final long MB = 1024L * 1024L;
     static final int VERSION = 1;
     public static final int MAX_DOWNLOAD_MB = 128;
+    public static final int MIN_SCALE_PERCENT = 25, MAX_SCALE_PERCENT = 400;
 
     /** 0 in files written by 0.1.x, which had no version. */
     public int configVersion;
@@ -41,6 +42,8 @@ public final class ImgPrevConfig {
     public int cacheBudgetMB = 256;
     public int maxDownloadMB = 32;
     public int maxDrawPx = 256;
+    /** Previews are drawn this percentage of their normal size; above 100 also enlarges images smaller than the box. */
+    public int previewScalePercent = 100;
     public Map<String, Boolean> sites = defaultSites();
     /** Off by default: people without ImgPrev see the token instead of the link. */
     public boolean autoConvertLinks = false;
@@ -163,6 +166,7 @@ public final class ImgPrevConfig {
         cacheBudgetMB = Math.clamp(cacheBudgetMB, 16, 2048);
         maxDownloadMB = Math.clamp(maxDownloadMB, 1, MAX_DOWNLOAD_MB);
         maxDrawPx = Math.clamp(maxDrawPx, 32, 512);
+        previewScalePercent = Math.clamp(previewScalePercent, MIN_SCALE_PERCENT, MAX_SCALE_PERCENT);
         if (sites == null) sites = new LinkedHashMap<>();
         defaultSites().forEach(sites::putIfAbsent);
         sites.remove("k");   // Klipy slug tokens, removed after 0.2.0; the old klipyApiKey field is dropped on the next save
@@ -177,6 +181,7 @@ public final class ImgPrevConfig {
         labelColors = colors;
     }
 
+    public double previewScale() { return previewScalePercent / 100.0; }
     public long cacheBudgetBytes() { return cacheBudgetMB * MB; }
     public int maxDownloadBytes() { return (int) (maxDownloadMB * MB); }
 

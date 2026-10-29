@@ -35,6 +35,12 @@ public final class ConfigScreen {
             .setTooltip(text("Images are scaled down so their longest side fits this many GUI pixels."), text("They're still drawn at your screen's full resolution."))
             .setSaveConsumer(v -> cfg.maxDrawPx = v).build());
 
+        general.addEntry(e.startIntSlider(text("Preview scale (%)"), cfg.previewScalePercent, ImgPrevConfig.MIN_SCALE_PERCENT, ImgPrevConfig.MAX_SCALE_PERCENT)
+            .setDefaultValue(defaults.previewScalePercent)
+            .setTooltip(text("Makes previews bigger or smaller, including small images and GIFs."), text("They never grow past half the screen's width or 60% of its height."))
+            .setTextGetter(v -> text(v + "%"))
+            .setSaveConsumer(v -> cfg.previewScalePercent = v).build());
+
         // One row per kind of label: a hex box, then a button that opens the preset swatches (see LabelColourEntry).
         ConfigCategory colours = builder.getOrCreateCategory(text("Colours"));
         colours.addEntry(e.startTextDescription(text("Each kind of label has its own colour. Pick a preset with the swatch button, or type "
