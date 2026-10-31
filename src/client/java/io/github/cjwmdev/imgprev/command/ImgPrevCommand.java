@@ -8,6 +8,7 @@ import com.mojang.brigadier.tree.LiteralCommandNode;
 import io.github.cjwmdev.imgprev.ImgPrevClient;
 import io.github.cjwmdev.imgprev.config.ConfigScreen;
 import io.github.cjwmdev.imgprev.config.ImgPrevConfig;
+import io.github.cjwmdev.imgprev.saved.SavedImages;
 import io.github.cjwmdev.imgprev.site.Label;
 import io.github.cjwmdev.imgprev.site.SiteCodec;
 import io.github.cjwmdev.imgprev.site.SiteRegistry;
@@ -62,6 +63,12 @@ public final class ImgPrevCommand {
             .then(ClientCommands.literal("autoconvert")
                 .then(editing("on", (src, cfg) -> { cfg.autoConvertLinks = true; src.sendFeedback(Component.literal("Image links in messages you send become tokens")); }))
                 .then(editing("off", (src, cfg) -> { cfg.autoConvertLinks = false; src.sendFeedback(Component.literal("Links are sent as typed")); })))
+            .then(ClientCommands.literal("shortcuts")
+                .then(editing("on", (src, cfg) -> { cfg.savedNameShortcuts = true; src.sendFeedback(Component.literal(":name: in messages you send becomes that saved image")); }))
+                .then(editing("off", (src, cfg) -> { cfg.savedNameShortcuts = false; src.sendFeedback(Component.literal(":name: is sent as typed")); })))
+            .then(ClientCommands.literal("instantsend")
+                .then(editing("on", (src, cfg) -> { cfg.sendSavedImmediately = true; src.sendFeedback(Component.literal("/img <name> sends the image straight away")); }))
+                .then(editing("off", (src, cfg) -> { cfg.sendSavedImmediately = false; src.sendFeedback(Component.literal("/img <name> puts the image in the chat box")); })))
             .then(site)
             .then(ClientCommands.literal("cache").then(ClientCommands.literal("clear").executes(c -> {
                 ImgPrevClient.CACHE.clear();
@@ -70,8 +77,9 @@ public final class ImgPrevCommand {
             })))
             .then(ClientCommands.literal("reload").executes(c -> {
                 ImgPrevClient.CONFIG.reload();
+                ImgPrevClient.SAVED.reload();
                 ImgPrevClient.CACHE.clear();   // size limits may have changed
-                c.getSource().sendFeedback(Component.literal("Reloaded " + ImgPrevConfig.path().getFileName()));
+                c.getSource().sendFeedback(Component.literal("Reloaded " + ImgPrevConfig.path().getFileName() + " and " + SavedImages.path().getFileName()));
                 return 1;
             })));
     }
@@ -151,11 +159,12 @@ public final class ImgPrevCommand {
             sites.append(Component.literal(" " + c.name()).withStyle(on ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY));
         }
         src.sendFeedback(Component.literal("ImgPrev: previews " + (cfg.renderEnabled ? "on" : "off")
-            + (cfg.requireShift ? ", Shift to preview" : "") + (cfg.autoConvertLinks ? ", auto-convert on" : "") + ". Sites:").append(sites));
+            + (cfg.requireShift ? ", Shift to preview" : "") + (cfg.autoConvertLinks ? ", auto-convert on" : "")
+            + (cfg.savedNameShortcuts ? ", :name: shortcuts on" : "") + (cfg.sendSavedImmediately ? ", instant send on" : "") + ". Sites:").append(sites));
         src.sendFeedback(Component.literal("Labels:").append(allLabels(cfg))
             .append(Component.literal(". All settings: /imgprev settings").withStyle(ChatFormatting.GRAY)));
-        src.sendFeedback(Component.literal(String.format("Cache: %d images, %.1f of %d MB",
-            ImgPrevClient.CACHE.size(), ImgPrevClient.CACHE.usedBytes() / 1048576.0, cfg.cacheBudgetMB))
+        src.sendFeedback(Component.literal(String.format("Cache: %d images, %.1f of %d MB. Saved images: %d (/img list)",
+            ImgPrevClient.CACHE.size(), ImgPrevClient.CACHE.usedBytes() / 1048576.0, cfg.cacheBudgetMB, ImgPrevClient.SAVED.all().size()))
             .withStyle(ChatFormatting.GRAY));
         return 1;
     }

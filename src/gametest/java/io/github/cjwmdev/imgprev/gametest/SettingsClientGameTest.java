@@ -80,7 +80,7 @@ public final class SettingsClientGameTest implements FabricClientGameTest {
                 throw new UncheckedIOException(e);
             }
             typeInChat(ctx, "/imgprev reload");
-            assertEquals("Reloaded imgprev.json", lastChat(ctx), "reload feedback");
+            assertEquals("Reloaded imgprev.json and imgprev-saved.json", lastChat(ctx), "reload feedback");
             assertEquals(64, ctx.computeOnClient(mc -> ImgPrevClient.CONFIG.maxDrawPx), "maxDrawPx after reload");
 
             typeInChat(ctx, "/imgprev cache clear");

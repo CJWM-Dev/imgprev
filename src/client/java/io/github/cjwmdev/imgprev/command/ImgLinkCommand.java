@@ -5,6 +5,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import io.github.cjwmdev.imgprev.site.LinkConverter;
 import io.github.cjwmdev.imgprev.token.TokenCodec;
 import java.util.Optional;
+import java.util.function.Consumer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.minecraft.client.Minecraft;
@@ -34,11 +35,19 @@ public final class ImgLinkCommand {
 
     /** {@code typed == null} reads the clipboard. */
     private static int run(FabricClientCommandSource src, @Nullable String typed, boolean openChat) {
+        return toToken(src, typed, t -> deliver(src, t, openChat));
+    }
+
+    /**
+     * The clipboard's link ({@code typed == null}) or the typed one as a token, handed to {@code then} at once or after
+     * a page lookup. Problems are shown in chat; returns 0 if it failed straight away.
+     */
+    static int toToken(FabricClientCommandSource src, @Nullable String typed, Consumer<String> then) {
         Minecraft mc = src.getClient();
         String link = (typed == null ? mc.keyboardHandler.getClipboard() : typed).strip();   // "" when empty or not text
         Optional<String> token = TokenCodec.encode(link);
         if (token.isPresent()) {
-            deliver(src, token.get(), openChat);
+            then.accept(token.get());
             return 1;
         }
         if (!LinkConverter.needsLookup(link)) {
@@ -52,7 +61,7 @@ public final class ImgLinkCommand {
         src.sendFeedback(Component.literal("Looking up the image…"));
         LinkConverter.convert(link).whenComplete((t, err) -> mc.execute(() -> {
             if (err != null) src.sendError(Component.literal(LinkConverter.describe(err)));
-            else deliver(src, t, openChat);
+            else then.accept(t);
         }));
         return 1;
     }

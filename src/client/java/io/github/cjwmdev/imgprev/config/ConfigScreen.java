@@ -55,10 +55,16 @@ public final class ConfigScreen {
         sending.addEntry(e.startBooleanToggle(text("Convert links when sending"), cfg.autoConvertLinks).setDefaultValue(defaults.autoConvertLinks)
             .setTooltip(text("Image links in messages you send become tokens."), text("Players without ImgPrev see the token instead of the link."))
             .setSaveConsumer(v -> cfg.autoConvertLinks = v).build());
+        sending.addEntry(e.startBooleanToggle(text("Replace :name: with saved images"), cfg.savedNameShortcuts).setDefaultValue(defaults.savedNameShortcuts)
+            .setTooltip(text("Typing :funnycat: in a message sends the image you saved as funnycat."), text("Names you haven't saved are left as typed."))
+            .setSaveConsumer(v -> cfg.savedNameShortcuts = v).build());
         sending.addEntry(e.startStrList(text("Also convert in these commands"), new ArrayList<>(cfg.autoConvertCommands))
             .setDefaultValue(defaults.autoConvertCommands)
-            .setTooltip(text("Commands whose text is chat, without the slash, e.g. pc for Hypixel party chat"))
+            .setTooltip(text("Commands whose text is chat, without the slash, e.g. pc for Hypixel party chat."), text("Used for links and :name: shortcuts."))
             .setSaveConsumer(v -> cfg.autoConvertCommands = new ArrayList<>(v)).build());
+        sending.addEntry(e.startBooleanToggle(text("/img <name> sends straight away"), cfg.sendSavedImmediately).setDefaultValue(defaults.sendSavedImmediately)
+            .setTooltip(text("Off: /img <name> puts the saved image in the chat box, ready to send."), text("On: it's sent to chat at once."))
+            .setSaveConsumer(v -> cfg.sendSavedImmediately = v).build());
 
         ConfigCategory sites = builder.getOrCreateCategory(text("Sites"));
         for (SiteCodec c : SiteRegistry.all()) {

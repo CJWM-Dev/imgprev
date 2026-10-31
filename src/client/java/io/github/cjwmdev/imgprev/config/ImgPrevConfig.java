@@ -49,6 +49,10 @@ public final class ImgPrevConfig {
     public boolean autoConvertLinks = false;
     /** Commands whose text is chat (Hypixel's party/guild/officer chat, private messages), converted like chat. */
     public List<String> autoConvertCommands = defaultCommands();
+    /** {@code /img <name>} sends the saved image at once instead of putting it in the chat box. */
+    public boolean sendSavedImmediately = false;
+    /** {@code :name:} in messages you send (and in {@link #autoConvertCommands}) becomes that saved image's token. */
+    public boolean savedNameShortcuts = false;
     /** Colour of each kind of label, keyed by {@link Label#text}: a chat colour name such as {@code aqua}, or {@code #RRGGBB}. */
     public Map<String, String> labelColors = defaultLabelColors();
 

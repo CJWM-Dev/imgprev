@@ -14,6 +14,7 @@ Tokens look like `<~GXJtM2nNFCzT3etvzOBK~>`. They contain no links, so chat filt
 - **Share page links work too.** Postimages (`postimg.cc/…`) and ImgBB (`ibb.co/…`) page links are looked up when you convert them, so you don't need to find the direct image address.
 - **Full-resolution drawing.** Previews are decoded at your screen's resolution and scaled smoothly.
 - **Auto-convert links.** Optionally turns links you send into tokens automatically. This also works in commands such as party chat (`/pc`) or `/msg`.
+- **Saved images.** Save a GIF under a name with `/img save funnycat <link>`, then send it any time with `/img funnycat`, or optionally by typing `:funnycat:` in a message.
 - **Settings screen** with `/imgprev settings` or through Mod Menu, plus `/imgprev` chat commands for quick changes.
 - **Label colours.** Each kind of label (GIF, Image, Emoji, Sticker, Discord) has its own colour. Pick a preset or type any hex colour.
 - **Client-side only.** Works on any server. The server only ever sees the token text.
@@ -30,6 +31,19 @@ Requires Java 25.
 ## Using it
 
 **Sending an image:** Use `/imglink <link>` to copy a token to your clipboard, or `/imglink chat <link>` to put the token straight into the chat box. If auto-convert is on, you can just paste a link and press Enter.
+
+**Saved images:** Keep the GIFs you use most under short names. They're stored in `config/imgprev-saved.json`, which you can back up or give to a friend.
+
+| Command | What it does |
+|---|---|
+| `/img save <name> <link>` | Save an image. Leave out the link to use the one you copied. Names use letters, numbers, `_` and `-`, and capitals don't matter |
+| `/img <name>` | Put the saved image in the chat box, ready to send |
+| `/img` or `/img list` | List your saved images. Hover one to preview it, or click it to put it in the chat box |
+| `/img remove <name>` | Delete a saved image |
+| `/imgprev instantsend on` | Make `/img <name>` send straight away instead |
+| `/imgprev shortcuts on` | Typing `:name:` in a message sends that saved image. Works in chat and in the commands auto-convert covers, such as `/pc` |
+
+Both settings are off by default and are also in the settings screen under Sending.
 
 **Settings:** Type `/imgprev settings` to open the settings screen (needs Cloth Config), or open it from Mod Menu. Type `/imgprev` for the current status. Useful commands:
 

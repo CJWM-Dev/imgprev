@@ -11,7 +11,8 @@
       "io.github.cjwmdev.imgprev.gametest.SettingsClientGameTest",
       "io.github.cjwmdev.imgprev.gametest.SendingClientGameTest",
       "io.github.cjwmdev.imgprev.gametest.ChatLinesClientGameTest",
-      "io.github.cjwmdev.imgprev.gametest.ScaleClientGameTest"
+      "io.github.cjwmdev.imgprev.gametest.ScaleClientGameTest",
+      "io.github.cjwmdev.imgprev.gametest.SavedImagesClientGameTest"
     ]
   },
   "depends": { "imgprev": "*" }
