@@ -10,7 +10,7 @@ Tokens look like `<~GXJtM2nNFCzT3etvzOBK~>`. They contain no links, so chat filt
 
 ## Features
 
-- **Previews** for Giphy, Imgur, Tenor, Discord emoji, stickers and attachments, Gyazo, Klipy, Postimages, ImgBB, and Catbox. Still images, animated GIFs, animated WebP and animated PNG (APNG, which Discord stickers use) are all supported.
+- **Previews** for Giphy, Imgur, Tenor, Discord emoji, stickers and attachments, Gyazo, Klipy, Postimages, ImgBB, Catbox, and FixTweet tweet GIFs (`gif.fxtwitter.com`). Still images, animated GIFs, animated WebP and animated PNG (APNG, which Discord stickers use) are all supported.
 - **Share page links work too.** Postimages (`postimg.cc/…`) and ImgBB (`ibb.co/…`) page links are looked up when you convert them, so you don't need to find the direct image address.
 - **Full-resolution drawing.** Previews are decoded at your screen's resolution and scaled smoothly.
 - **Auto-convert links.** Optionally turns links you send into tokens automatically. This also works in commands such as party chat (`/pc`) or `/msg`.

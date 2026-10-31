@@ -67,6 +67,9 @@ class SiteRoundTripTest {
         https://files.catbox.moe/q2n358.jpg | https://files.catbox.moe/q2n358.jpg
         https://files.catbox.moe/q2n358.gif | https://files.catbox.moe/q2n358.gif
         https://files.catbox.moe/q2n358.webp | https://files.catbox.moe/q2n358.webp
+        # FixTweet (tweet GIFs as animated WebP)
+        https://gif.fxtwitter.com/tweet_video/HTWyR_oasAAx_Cu.webp | https://gif.fxtwitter.com/tweet_video/HTWyR_oasAAx_Cu.webp
+        https://gif.fxtwitter.com/tweet_video/HTWyR_oasAAx_Cu.webp?x=1 | https://gif.fxtwitter.com/tweet_video/HTWyR_oasAAx_Cu.webp
         """)
     void roundTripsToCanonicalUrl(String url, String expected) {
         assertLinkFree(token(url));
@@ -93,7 +96,8 @@ class SiteRoundTripTest {
                 "https://media.tenor.com/1S3s5iesWX0AAAAM/x.gif", "https://media.discordapp.net/emojis/123456789012345678.png",
                 "https://cdn.discordapp.com/stickers/781291131828699156.png", "https://cdn.discordapp.com/stickers/1234567890123456789.gif",
                 "https://gyazo.com/0123456789abcdef0123456789abcdef", "https://i.postimg.cc/XqRyT9nn/x.png",
-                "https://i.ibb.co/M5f2dMkG/Full-Moon.webp", "https://files.catbox.moe/sa4ue3.png"}) {
+                "https://i.ibb.co/M5f2dMkG/Full-Moon.webp", "https://files.catbox.moe/sa4ue3.png",
+                "https://gif.fxtwitter.com/tweet_video/HTWyR_oasAAx_Cu.webp"}) {
             var m = media(url);
             assertTrue(m.codec().allowedDownloadHosts().contains(m.codec().mediaUri(m.payload()).getHost()), url);
         }
