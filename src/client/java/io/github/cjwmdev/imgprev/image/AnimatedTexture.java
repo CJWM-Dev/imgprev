@@ -7,8 +7,10 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
+import io.github.cjwmdev.imgprev.mixin.GuiGraphicsInvoker;
 import java.util.Arrays;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
 
 /**
  * One GPU texture per frame, each uploaded the first time it's drawn so a long animation doesn't stall a single
@@ -44,6 +46,16 @@ public final class AnimatedTexture {
     public void draw(GuiGraphicsExtractor g, int x, int y, int w, int h, long millis) {
         if (released) return;
         g.blit(view(frameAt(millis)), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR), x, y, x + w, y + h, 0f, 1f, 0f, 1f);
+    }
+
+    /**
+     * Draws the band {@code v0..v1} (0 top, 1 bottom) of the frame showing at {@code millis} into the GUI rectangle
+     * {@code x0,y0..x1,y1}, tinted by {@code argb} (white with alpha to fade it).
+     */
+    public void drawPart(GuiGraphicsExtractor g, int x0, int y0, int x1, int y1, float v0, float v1, int argb, long millis) {
+        if (released) return;
+        ((GuiGraphicsInvoker) g).imgprev$innerBlit(RenderPipelines.GUI_TEXTURED, view(frameAt(millis)),
+            RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR), x0, y0, x1, y1, 0f, 1f, v0, v1, argb);
     }
 
     private GpuTextureView view(int i) {

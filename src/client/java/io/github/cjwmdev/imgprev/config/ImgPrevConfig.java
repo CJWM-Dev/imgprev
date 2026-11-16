@@ -35,6 +35,7 @@ public final class ImgPrevConfig {
     static final int VERSION = 1;
     public static final int MAX_DOWNLOAD_MB = 128;
     public static final int MIN_SCALE_PERCENT = 25, MAX_SCALE_PERCENT = 400;
+    public static final int MIN_CHAT_IMAGE_LINES = 2, MAX_CHAT_IMAGE_LINES = 20;
 
     /** 0 in files written by 0.1.x, which had no version. */
     public int configVersion;
@@ -45,6 +46,13 @@ public final class ImgPrevConfig {
     public int maxDrawPx = 256;
     /** Previews are drawn this percentage of their normal size; above 100 also enlarges images smaller than the box. */
     public int previewScalePercent = 100;
+    /**
+     * Off by default: draws images in chat under their message, which downloads each one as it appears rather than on
+     * hover (so its site sees your IP address without you choosing to look).
+     */
+    public boolean imagesInChat = false;
+    /** How many chat lines tall the space under a message is; images shrink to fit it and the chat moves up around them. */
+    public int chatImageLines = 5;
     public Map<String, Boolean> sites = defaultSites();
     /** Off by default: people without ImgPrev see the token instead of the link. */
     public boolean autoConvertLinks = false;
@@ -176,6 +184,7 @@ public final class ImgPrevConfig {
         maxDownloadMB = Math.clamp(maxDownloadMB, 1, MAX_DOWNLOAD_MB);
         maxDrawPx = Math.clamp(maxDrawPx, 32, 512);
         previewScalePercent = Math.clamp(previewScalePercent, MIN_SCALE_PERCENT, MAX_SCALE_PERCENT);
+        chatImageLines = Math.clamp(chatImageLines, MIN_CHAT_IMAGE_LINES, MAX_CHAT_IMAGE_LINES);
         if (sites == null) sites = new LinkedHashMap<>();
         defaultSites().forEach(sites::putIfAbsent);
         sites.remove("k");   // Klipy slug tokens, removed after 0.2.0; the old klipyApiKey field is dropped on the next save

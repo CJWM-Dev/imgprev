@@ -103,7 +103,13 @@ public final class ImageCache {
      * hovered, otherwise the next time it is (nothing downloads in the background unasked). A new load fits the image
      * in {@code boxW×boxH} GUI units, decoded at {@code guiScale} pixels per unit.
      */
-    public Entry getOrStart(ResolvedMedia m, int boxW, int boxH, int guiScale) {
+    public Entry getOrStart(ResolvedMedia m, int boxW, int boxH, int guiScale) { return getOrStart(m, boxW, boxH, guiScale, true); }
+
+    /**
+     * {@code upgrade} false: a loaded image is used at whatever size it has, never re-decoded for this box. Images in
+     * chat ask this way, so they and the hover preview (a different box) don't keep replacing each other's texture.
+     */
+    public Entry getOrStart(ResolvedMedia m, int boxW, int boxH, int guiScale, boolean upgrade) {
         String key = m.key();
         int pxW = boxW * guiScale, pxH = boxH * guiScale;
         Entry e = entries.remove(key);
@@ -111,7 +117,7 @@ public final class ImageCache {
             entries.put(key, e);   // now the most recently hovered
             boolean retry = secondsUntilRetry(e) == 0;
             if (!retry) {
-                if (wantsUpgrade(e, pxW, pxH) && loading < MAX_LOADING) {
+                if (upgrade && wantsUpgrade(e, pxW, pxH) && loading < MAX_LOADING) {
                     e.upgrading = true;
                     start(m, new Entry(), e, boxW, boxH, pxW, pxH);
                 }

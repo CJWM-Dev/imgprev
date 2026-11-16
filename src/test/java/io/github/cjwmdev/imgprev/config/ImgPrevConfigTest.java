@@ -63,6 +63,19 @@ class ImgPrevConfigTest {
         assertEquals("1h", chosen.uploadLifetime);
     }
 
+    @Test void imagesInChatAreOffAndTheirHeightIsClamped() {
+        ImgPrevConfig cfg = parse("{}");
+        cfg.sanitize();
+        assertFalse(cfg.imagesInChat);
+        assertEquals(5, cfg.chatImageLines);
+        ImgPrevConfig tall = parse("{\"imagesInChat\": true, \"chatImageLines\": 99}"), flat = parse("{\"chatImageLines\": 0}");
+        tall.sanitize();
+        flat.sanitize();
+        assertTrue(tall.imagesInChat);
+        assertEquals(ImgPrevConfig.MAX_CHAT_IMAGE_LINES, tall.chatImageLines);
+        assertEquals(ImgPrevConfig.MIN_CHAT_IMAGE_LINES, flat.chatImageLines);
+    }
+
     @Test void eachKindOfLabelHasItsOwnDefault() {
         ImgPrevConfig cfg = parse("{}");
         cfg.sanitize();

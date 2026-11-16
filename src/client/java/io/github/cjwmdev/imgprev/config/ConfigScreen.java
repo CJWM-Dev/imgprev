@@ -1,11 +1,14 @@
 package io.github.cjwmdev.imgprev.config;
 
 import io.github.cjwmdev.imgprev.ImgPrevClient;
+import io.github.cjwmdev.imgprev.render.ChatImages;
 import io.github.cjwmdev.imgprev.site.Label;
 import io.github.cjwmdev.imgprev.site.SiteCodec;
 import io.github.cjwmdev.imgprev.site.SiteRegistry;
 import io.github.cjwmdev.imgprev.upload.UploadMode;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
 import me.shedaniel.clothconfig2.api.ConfigCategory;
 import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
@@ -41,6 +44,15 @@ public final class ConfigScreen {
             .setTooltip(text("Makes previews bigger or smaller, including small images and GIFs."), text("They never grow past half the screen's width or 60% of its height."))
             .setTextGetter(v -> text(v + "%"))
             .setSaveConsumer(v -> cfg.previewScalePercent = v).build());
+        general.addEntry(e.startBooleanToggle(text("Show images in chat"), cfg.imagesInChat).setDefaultValue(defaults.imagesInChat)
+            .setTooltip(text("Draws each image, shrunk down, under its message; the chat moves up to make room."),
+                text("Every image downloads as soon as it appears, without hovering, so its site sees your IP address."))
+            .setSaveConsumer(v -> cfg.imagesInChat = v).build());
+        general.addEntry(e.startIntSlider(text("Image height in chat (lines)"), cfg.chatImageLines,
+                ImgPrevConfig.MIN_CHAT_IMAGE_LINES, ImgPrevConfig.MAX_CHAT_IMAGE_LINES)
+            .setDefaultValue(defaults.chatImageLines)
+            .setTooltip(text("How many chat lines tall images in chat are. Hover one with chat open to see it full size."))
+            .setSaveConsumer(v -> cfg.chatImageLines = v).build());
 
         // One row per kind of label: a hex box, then a button that opens the preset swatches (see LabelColourEntry).
         ConfigCategory colours = builder.getOrCreateCategory(text("Colours"));
@@ -96,9 +108,15 @@ public final class ConfigScreen {
 
         // Cached previews were decoded for the limits in force when they loaded; compared against the last save, not the screen's opening.
         int[] limits = {cfg.cacheBudgetMB, cfg.maxDownloadMB, cfg.maxDrawPx};
+        // Chat is laid out again when what decides its image rows changes, so messages already there follow suit.
+        Object[] chatLayout = {chatLayout(cfg)};
         builder.setSavingRunnable(() -> {
             cfg.sanitize();
             cfg.save();
+            if (!chatLayout[0].equals(chatLayout(cfg))) {
+                chatLayout[0] = chatLayout(cfg);
+                ChatImages.refreshChat();
+            }
             int[] now = {cfg.cacheBudgetMB, cfg.maxDownloadMB, cfg.maxDrawPx};
             if (!java.util.Arrays.equals(now, limits)) {
                 ImgPrevClient.CACHE.clear();
@@ -106,6 +124,11 @@ public final class ConfigScreen {
             }
         });
         return builder.build();
+    }
+
+    /** The settings that decide which messages get image rows in chat, and how many. */
+    private static List<Object> chatLayout(ImgPrevConfig cfg) {
+        return List.of(cfg.renderEnabled, cfg.imagesInChat, cfg.chatImageLines, Map.copyOf(cfg.sites));
     }
 
     private static Component text(String s) { return Component.literal(s); }

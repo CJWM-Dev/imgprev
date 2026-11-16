@@ -8,6 +8,7 @@ import com.mojang.brigadier.tree.LiteralCommandNode;
 import io.github.cjwmdev.imgprev.ImgPrevClient;
 import io.github.cjwmdev.imgprev.config.ConfigScreen;
 import io.github.cjwmdev.imgprev.config.ImgPrevConfig;
+import io.github.cjwmdev.imgprev.render.ChatImages;
 import io.github.cjwmdev.imgprev.saved.SavedImages;
 import io.github.cjwmdev.imgprev.site.Label;
 import io.github.cjwmdev.imgprev.site.SiteCodec;
@@ -61,6 +62,27 @@ public final class ImgPrevCommand {
             .then(ClientCommands.literal("shift")
                 .then(editing("on", (src, cfg) -> { cfg.requireShift = true; src.sendFeedback(Component.literal("Previews need Shift held")); }))
                 .then(editing("off", (src, cfg) -> { cfg.requireShift = false; src.sendFeedback(Component.literal("Previews show on hover")); })))
+            .then(ClientCommands.literal("chatimages")
+                .then(editing("on", (src, cfg) -> {
+                    cfg.imagesInChat = true;
+                    ChatImages.refreshChat();
+                    src.sendFeedback(Component.literal("Images show in chat, " + cfg.chatImageLines + " lines tall. They download as they appear"));
+                }))
+                .then(editing("off", (src, cfg) -> {
+                    cfg.imagesInChat = false;
+                    ChatImages.refreshChat();
+                    src.sendFeedback(Component.literal("Images show when you hover their label"));
+                }))
+                .then(ClientCommands.argument("lines", IntegerArgumentType.integer(ImgPrevConfig.MIN_CHAT_IMAGE_LINES, ImgPrevConfig.MAX_CHAT_IMAGE_LINES))
+                    .executes(c -> {
+                        ImgPrevConfig cfg = ImgPrevClient.CONFIG;
+                        cfg.chatImageLines = IntegerArgumentType.getInteger(c, "lines");
+                        cfg.save();
+                        ChatImages.refreshChat();
+                        c.getSource().sendFeedback(Component.literal("Images in chat are " + cfg.chatImageLines + " lines tall"
+                            + (cfg.imagesInChat ? "" : " (turn them on with /imgprev chatimages on)")));
+                        return 1;
+                    })))
             .then(ClientCommands.literal("autoconvert")
                 .then(editing("on", (src, cfg) -> { cfg.autoConvertLinks = true; src.sendFeedback(Component.literal("Image links in messages you send become tokens")); }))
                 .then(editing("off", (src, cfg) -> { cfg.autoConvertLinks = false; src.sendFeedback(Component.literal("Links are sent as typed")); })))
@@ -81,6 +103,7 @@ public final class ImgPrevCommand {
                 ImgPrevClient.CONFIG.reload();
                 ImgPrevClient.SAVED.reload();
                 ImgPrevClient.CACHE.clear();   // size limits may have changed
+                ChatImages.refreshChat();
                 c.getSource().sendFeedback(Component.literal("Reloaded " + ImgPrevConfig.path().getFileName() + " and " + SavedImages.path().getFileName()));
                 return 1;
             })));
@@ -177,7 +200,7 @@ public final class ImgPrevCommand {
             sites.append(Component.literal(" " + c.name()).withStyle(on ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY));
         }
         src.sendFeedback(Component.literal("ImgPrev: previews " + (cfg.renderEnabled ? "on" : "off")
-            + (cfg.requireShift ? ", Shift to preview" : "") + (cfg.autoConvertLinks ? ", auto-convert on" : "")
+            + (cfg.requireShift ? ", Shift to preview" : "") + (cfg.imagesInChat ? ", images in chat" : "") + (cfg.autoConvertLinks ? ", auto-convert on" : "")
             + (cfg.savedNameShortcuts ? ", :name: shortcuts on" : "") + (cfg.sendSavedImmediately ? ", instant send on" : "")
             + ", uploads " + (cfg.uploadMode == UploadMode.TEMPORARY ? "temporary (" + cfg.uploadLifetime + ")" : "permanent") + ". Sites:").append(sites));
         src.sendFeedback(Component.literal("Labels:").append(allLabels(cfg))
