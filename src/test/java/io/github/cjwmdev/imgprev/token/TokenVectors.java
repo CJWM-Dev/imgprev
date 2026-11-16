@@ -18,7 +18,7 @@ import java.util.Optional;
  * first column.
  */
 public final class TokenVectors {
-    static final List<String> SITES = List.of("catbox", "discord", "emoji", "giphy", "gyazo", "imgbb", "imgur", "klipy", "postimages", "sticker", "tenor");
+    static final List<String> SITES = List.of("catbox", "discord", "emoji", "fxtwitter", "giphy", "gyazo", "imgbb", "imgur", "klipy", "litterbox", "postimages", "sticker", "tenor");
     /** Supported hosts with paths that aren't images, other hosts, and plain http. */
     static final List<String> REFUSED = List.of(
         "https://imgur.com/a/AbC12xY", "https://imgur.com/gallery/AbC12xY", "https://klipy.com/gifs/cat-dance",
