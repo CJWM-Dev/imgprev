@@ -12,6 +12,7 @@ import io.github.cjwmdev.imgprev.saved.SavedImages;
 import io.github.cjwmdev.imgprev.site.Label;
 import io.github.cjwmdev.imgprev.site.SiteCodec;
 import io.github.cjwmdev.imgprev.site.SiteRegistry;
+import io.github.cjwmdev.imgprev.upload.UploadMode;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.BiConsumer;
@@ -69,6 +70,7 @@ public final class ImgPrevCommand {
             .then(ClientCommands.literal("instantsend")
                 .then(editing("on", (src, cfg) -> { cfg.sendSavedImmediately = true; src.sendFeedback(Component.literal("/img <name> sends the image straight away")); }))
                 .then(editing("off", (src, cfg) -> { cfg.sendSavedImmediately = false; src.sendFeedback(Component.literal("/img <name> puts the image in the chat box")); })))
+            .then(uploads())
             .then(site)
             .then(ClientCommands.literal("cache").then(ClientCommands.literal("clear").executes(c -> {
                 ImgPrevClient.CACHE.clear();
@@ -122,6 +124,22 @@ public final class ImgPrevCommand {
         return root;
     }
 
+    /** {@code /imgprev uploads temporary [1h|12h|24h|72h]} and {@code /imgprev uploads permanent}. */
+    private static LiteralArgumentBuilder<FabricClientCommandSource> uploads() {
+        LiteralArgumentBuilder<FabricClientCommandSource> temporary = editing("temporary", (src, cfg) -> setUploads(src, cfg, UploadMode.TEMPORARY, cfg.uploadLifetime));
+        for (String lifetime : UploadMode.LIFETIMES) {
+            temporary.then(editing(lifetime, (src, cfg) -> setUploads(src, cfg, UploadMode.TEMPORARY, lifetime)));
+        }
+        return ClientCommands.literal("uploads").then(temporary)
+            .then(editing("permanent", (src, cfg) -> setUploads(src, cfg, UploadMode.PERMANENT, cfg.uploadLifetime)));
+    }
+
+    private static void setUploads(FabricClientCommandSource src, ImgPrevConfig cfg, UploadMode mode, String lifetime) {
+        cfg.uploadMode = mode;
+        cfg.uploadLifetime = lifetime;
+        src.sendFeedback(Component.literal("Uploads go to " + mode.site() + " and are " + mode.lifetimeText(lifetime)));
+    }
+
     /** "[▶ Gold]" in that colour. */
     static Component swatch(Label label, TextColor c) {
         return Component.literal("[" + label.icon() + " " + ImgPrevConfig.colorName(c) + "]").withStyle(s -> s.withColor(c));
@@ -160,7 +178,8 @@ public final class ImgPrevCommand {
         }
         src.sendFeedback(Component.literal("ImgPrev: previews " + (cfg.renderEnabled ? "on" : "off")
             + (cfg.requireShift ? ", Shift to preview" : "") + (cfg.autoConvertLinks ? ", auto-convert on" : "")
-            + (cfg.savedNameShortcuts ? ", :name: shortcuts on" : "") + (cfg.sendSavedImmediately ? ", instant send on" : "") + ". Sites:").append(sites));
+            + (cfg.savedNameShortcuts ? ", :name: shortcuts on" : "") + (cfg.sendSavedImmediately ? ", instant send on" : "")
+            + ", uploads " + (cfg.uploadMode == UploadMode.TEMPORARY ? "temporary (" + cfg.uploadLifetime + ")" : "permanent") + ". Sites:").append(sites));
         src.sendFeedback(Component.literal("Labels:").append(allLabels(cfg))
             .append(Component.literal(". All settings: /imgprev settings").withStyle(ChatFormatting.GRAY)));
         src.sendFeedback(Component.literal(String.format("Cache: %d images, %.1f of %d MB. Saved images: %d (/img list)",

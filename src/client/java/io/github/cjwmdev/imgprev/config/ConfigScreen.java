@@ -4,6 +4,7 @@ import io.github.cjwmdev.imgprev.ImgPrevClient;
 import io.github.cjwmdev.imgprev.site.Label;
 import io.github.cjwmdev.imgprev.site.SiteCodec;
 import io.github.cjwmdev.imgprev.site.SiteRegistry;
+import io.github.cjwmdev.imgprev.upload.UploadMode;
 import java.util.ArrayList;
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
 import me.shedaniel.clothconfig2.api.ConfigCategory;
@@ -65,6 +66,17 @@ public final class ConfigScreen {
         sending.addEntry(e.startBooleanToggle(text("/img <name> sends straight away"), cfg.sendSavedImmediately).setDefaultValue(defaults.sendSavedImmediately)
             .setTooltip(text("Off: /img <name> puts the saved image in the chat box, ready to send."), text("On: it's sent to chat at once."))
             .setSaveConsumer(v -> cfg.sendSavedImmediately = v).build());
+
+        sending.addEntry(e.startEnumSelector(text("Screenshot uploads"), UploadMode.class, cfg.uploadMode).setDefaultValue(defaults.uploadMode)
+            .setEnumNameProvider(m -> text(((UploadMode) m).title()))
+            .setTooltip(text("Where /img upload and the [Share] button send screenshots. Anyone with the link can see them."),
+                text("Temporary: Litterbox deletes them after the time below."),
+                text("Permanent: Catbox keeps them, and they can't be deleted."))
+            .setSaveConsumer(v -> cfg.uploadMode = v).build());
+        sending.addEntry(e.startSelector(text("Temporary uploads last"), UploadMode.LIFETIMES.toArray(String[]::new), cfg.uploadLifetime)
+            .setDefaultValue(defaults.uploadLifetime)
+            .setTooltip(text("How long Litterbox keeps temporary uploads"))
+            .setSaveConsumer(v -> cfg.uploadLifetime = v).build());
 
         ConfigCategory sites = builder.getOrCreateCategory(text("Sites"));
         for (SiteCodec c : SiteRegistry.all()) {

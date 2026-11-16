@@ -12,8 +12,8 @@ public final class SiteRegistry {
     /** Sites whose share page links {@link LinkConverter} looks up. */
     static final List<IdPathCodec> PAGES = List.of(POSTIMAGES, IMGBB);
     private static final List<SiteCodec> ALL = List.of(new GiphyCodec(), new ImgurCodec(), new TenorMediaCodec(),
-        new DiscordEmojiCodec(), new DiscordAttachmentCodec(), new DiscordStickerCodec(), new GyazoCodec(), new KlipyMediaCodec(), POSTIMAGES, IMGBB, new CatboxCodec(),
-        new FxTwitterGifCodec());
+        new DiscordEmojiCodec(), new DiscordAttachmentCodec(), new DiscordStickerCodec(), new GyazoCodec(), new KlipyMediaCodec(), POSTIMAGES, IMGBB, CatboxCodec.catbox(),
+        new FxTwitterGifCodec(), CatboxCodec.litterbox());
     private static final Map<Character, SiteCodec> BY_CODE = ALL.stream().collect(Collectors.toUnmodifiableMap(SiteCodec::code, Function.identity()));
     /** In {@link #ALL}'s order, so hosts shared by two codecs (Discord) try them the same way every time. */
     private static final Map<String, List<SiteCodec>> BY_HOST = ALL.stream()

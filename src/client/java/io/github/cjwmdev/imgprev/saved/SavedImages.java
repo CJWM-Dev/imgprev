@@ -32,7 +32,7 @@ public final class SavedImages {
     public static final int MAX_NAME = 32;
     static final Pattern NAME = Pattern.compile("[a-z0-9_-]{1," + MAX_NAME + "}");
     /** The words {@code /img} uses itself. */
-    public static final Set<String> RESERVED = Set.of("save", "list", "remove");
+    public static final Set<String> RESERVED = Set.of("save", "list", "remove", "upload");
     /** {@code :funnycat:} in a message, for {@link #expand}. */
     static final Pattern SHORTCUT = Pattern.compile(":([A-Za-z0-9_-]{1," + MAX_NAME + "}):");
 

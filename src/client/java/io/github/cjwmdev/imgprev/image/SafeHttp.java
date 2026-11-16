@@ -31,7 +31,7 @@ import org.jspecify.annotations.Nullable;
  * the request timeout only covers the wait for headers, so the body has its own idle and total limits.
  */
 public final class SafeHttp {
-    static final String USER_AGENT = "ImgPrev/" + modVersion() + " (Minecraft mod)";
+    public static final String USER_AGENT = "ImgPrev/" + modVersion() + " (Minecraft mod)";
     static final String BLOCKED = "Blocked: download left the site's servers";
     static final int MAX_REDIRECTS = 3;
     /** Bodies of redirects and errors are read up to this much, then dropped. */
@@ -130,7 +130,7 @@ public final class SafeHttp {
 
     static MediaException tooLarge(int maxBytes) { return new MediaException("File too large (over " + Math.ceilDiv(maxBytes, 1 << 20) + " MB)"); }
 
-    static ThreadFactory daemon(String name) {
+    public static ThreadFactory daemon(String name) {
         AtomicInteger n = new AtomicInteger();
         return r -> { Thread t = new Thread(r, name + "-" + n.incrementAndGet()); t.setDaemon(true); return t; };
     }

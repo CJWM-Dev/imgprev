@@ -3,6 +3,7 @@ package io.github.cjwmdev.imgprev.mixin;
 import io.github.cjwmdev.imgprev.ImgPrevClient;
 import io.github.cjwmdev.imgprev.chat.TokenStyler;
 import io.github.cjwmdev.imgprev.config.ImgPrevConfig;
+import io.github.cjwmdev.imgprev.upload.ScreenshotShare;
 import net.minecraft.client.gui.components.ChatComponent;
 import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
@@ -19,6 +20,7 @@ abstract class ChatComponentMixin {
                     at = @At("HEAD"), argsOnly = true, ordinal = 0)
     private Component imgprev$styleTokens(Component contents) {
         ImgPrevConfig cfg = ImgPrevClient.CONFIG;
+        contents = ScreenshotShare.apply(contents);
         return cfg.renderEnabled ? TokenStyler.apply(contents, cfg::allows, cfg::labelColor) : contents;
     }
 }

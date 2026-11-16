@@ -8,16 +8,27 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * {@code files.catbox.moe/{6 lowercase/digits}.{ext}}. Catbox is case-sensitive and 404s on any other extension,
- * so the payload keeps the exact one: ext code {@code p|j|e|g|w} (png, jpg, jpeg, gif, webp) + id.
+ * {@code files.catbox.moe/{6 lowercase/digits}.{ext}}, and the same form on {@code litter.catbox.moe}, Catbox's
+ * temporary host. Catbox is case-sensitive and 404s on any other extension, so the payload keeps the exact one:
+ * ext code {@code p|j|e|g|w} (png, jpg, jpeg, gif, webp) + id.
  */
 final class CatboxCodec extends BaseCodec {
     static final Pattern PATH = Pattern.compile("^/([a-z0-9]{6})\\.(png|jpg|jpeg|gif|webp)$");
     static final Pattern P = Pattern.compile("[pjegw][a-z0-9]{6}");
     static final String EXT = "pjegw", ID_CHARS = "0123456789abcdefghijklmnopqrstuvwxyz";
-    private static final Set<String> HOSTS = Set.of("files.catbox.moe");
+    private final String host;
+    private final boolean temporary;
 
-    CatboxCodec() { super('c', "catbox", "Catbox", Label.IMAGE, HOSTS, HOSTS); }
+    private CatboxCodec(char code, String name, String title, String host, boolean temporary) {
+        super(code, name, title, Label.IMAGE, Set.of(host), Set.of(host));
+        this.host = host;
+        this.temporary = temporary;
+    }
+
+    static CatboxCodec catbox() { return new CatboxCodec('c', "catbox", "Catbox", "files.catbox.moe", false); }
+
+    /** Files are deleted after the 1 to 72 hours chosen when they were uploaded. */
+    static CatboxCodec litterbox() { return new CatboxCodec('l', "litterbox", "Litterbox", "litter.catbox.moe", true); }
 
     @Override public Pattern payloadPattern() { return P; }
 
@@ -43,6 +54,11 @@ final class CatboxCodec extends BaseCodec {
 
     @Override public URI mediaUri(String p) {
         String ext = switch (p.charAt(0)) { case 'p' -> "png"; case 'j' -> "jpg"; case 'e' -> "jpeg"; case 'g' -> "gif"; default -> "webp"; };
-        return URI.create("https://files.catbox.moe/" + p.substring(1) + "." + ext);
+        return URI.create("https://" + host + "/" + p.substring(1) + "." + ext);
+    }
+
+    /** Temporary files 404 once deleted, which is far likelier than a wrong link. */
+    @Override public Optional<String> statusMessage(int status) {
+        return temporary && status == 404 ? Optional.of("Link expired (temporary upload)") : Optional.empty();
     }
 }

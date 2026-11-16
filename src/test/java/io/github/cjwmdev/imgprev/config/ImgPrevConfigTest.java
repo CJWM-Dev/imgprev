@@ -8,6 +8,7 @@ import com.google.gson.Gson;
 import io.github.cjwmdev.imgprev.site.Label;
 import io.github.cjwmdev.imgprev.site.SiteCodec;
 import io.github.cjwmdev.imgprev.site.SiteRegistry;
+import io.github.cjwmdev.imgprev.upload.UploadMode;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -49,6 +50,17 @@ class ImgPrevConfigTest {
         assertEquals(0x123456, ImgPrevConfig.parseColor("#123456").orElseThrow().getValue());
         assertEquals(0x123456, ImgPrevConfig.parseColor("123456").orElseThrow().getValue());
         for (String bad : new String[] {"", "rainbow", "#ff88", "#ff88001", "#gg0000", "§c"}) assertTrue(ImgPrevConfig.parseColor(bad).isEmpty(), bad);
+    }
+
+    @Test void badUploadSettingsFallBack() {
+        ImgPrevConfig cfg = parse("{\"uploadMode\": \"SIDEWAYS\", \"uploadLifetime\": \"5y\"}");
+        cfg.sanitize();
+        assertEquals(UploadMode.TEMPORARY, cfg.uploadMode);
+        assertEquals("24h", cfg.uploadLifetime);
+        ImgPrevConfig chosen = parse("{\"uploadMode\": \"PERMANENT\", \"uploadLifetime\": \"1h\"}");
+        chosen.sanitize();
+        assertEquals(UploadMode.PERMANENT, chosen.uploadMode);
+        assertEquals("1h", chosen.uploadLifetime);
     }
 
     @Test void eachKindOfLabelHasItsOwnDefault() {

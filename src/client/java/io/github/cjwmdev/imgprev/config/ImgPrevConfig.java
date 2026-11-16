@@ -8,6 +8,7 @@ import io.github.cjwmdev.imgprev.site.Label;
 import io.github.cjwmdev.imgprev.site.SiteCodec;
 import io.github.cjwmdev.imgprev.site.SiteRegistry;
 import io.github.cjwmdev.imgprev.token.ResolvedMedia;
+import io.github.cjwmdev.imgprev.upload.UploadMode;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -53,6 +54,10 @@ public final class ImgPrevConfig {
     public boolean sendSavedImmediately = false;
     /** {@code :name:} in messages you send (and in {@link #autoConvertCommands}) becomes that saved image's token. */
     public boolean savedNameShortcuts = false;
+    /** Where {@code /img upload} sends screenshots; temporary by default, since anonymous Catbox files can't be deleted. */
+    public UploadMode uploadMode = UploadMode.TEMPORARY;
+    /** How long temporary uploads last: one of {@link UploadMode#LIFETIMES}. */
+    public String uploadLifetime = UploadMode.DEFAULT_LIFETIME;
     /** Colour of each kind of label, keyed by {@link Label#text}: a chat colour name such as {@code aqua}, or {@code #RRGGBB}. */
     public Map<String, String> labelColors = defaultLabelColors();
 
@@ -174,6 +179,8 @@ public final class ImgPrevConfig {
         if (sites == null) sites = new LinkedHashMap<>();
         defaultSites().forEach(sites::putIfAbsent);
         sites.remove("k");   // Klipy slug tokens, removed after 0.2.0; the old klipyApiKey field is dropped on the next save
+        if (uploadMode == null) uploadMode = UploadMode.TEMPORARY;   // also an unknown name in the file
+        if (!UploadMode.LIFETIMES.contains(uploadLifetime)) uploadLifetime = UploadMode.DEFAULT_LIFETIME;
         if (autoConvertCommands == null) autoConvertCommands = defaultCommands();
         autoConvertCommands.replaceAll(c -> c.strip().replaceFirst("^/", "").toLowerCase(Locale.ROOT));
         autoConvertCommands.removeIf(String::isEmpty);

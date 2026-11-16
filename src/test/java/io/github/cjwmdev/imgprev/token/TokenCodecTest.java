@@ -114,7 +114,7 @@ class TokenCodecTest {
         "https://files.catbox.moe/SA4UE3.png",
         "https://files.catbox.moe/sa4ue3.mp4",
         "https://files.catbox.moe/sa4ue3",
-        "https://litter.catbox.moe/sa4ue3.png",
+        "https://litter.catbox.moe/sa4ue3.mp4",
         "javascript:alert(1)",
         "not a url",
         "https://",

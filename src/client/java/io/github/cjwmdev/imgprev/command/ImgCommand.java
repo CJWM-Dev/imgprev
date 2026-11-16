@@ -6,12 +6,16 @@ import com.mojang.brigadier.suggestion.SuggestionProvider;
 import io.github.cjwmdev.imgprev.ImgPrevClient;
 import io.github.cjwmdev.imgprev.saved.SavedImages;
 import io.github.cjwmdev.imgprev.token.TokenCodec;
+import io.github.cjwmdev.imgprev.upload.UploadMode;
+import io.github.cjwmdev.imgprev.upload.Uploader;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.SharedSuggestionProvider;
@@ -24,10 +28,14 @@ import org.jspecify.annotations.Nullable;
 /**
  * Saved images ({@link SavedImages}): {@code /img save <name> [link]} (the clipboard's link if none is typed),
  * {@code /img <name>} to send one, {@code /img list} (or just {@code /img}) and {@code /img remove <name>}.
+ * {@code /img upload [file]} uploads a screenshot (see {@link Uploader}).
  */
 public final class ImgCommand {
     private static final SuggestionProvider<FabricClientCommandSource> SAVED_NAMES =
         (c, b) -> SharedSuggestionProvider.suggest(ImgPrevClient.SAVED.all().keySet(), b);
+    /** Newest first; enough for recent screenshots without flooding the list. */
+    private static final SuggestionProvider<FabricClientCommandSource> SCREENSHOTS =
+        (c, b) -> SharedSuggestionProvider.suggest(Uploader.images(screenshots(c.getSource().getClient())).stream().limit(30), b);
 
     private ImgCommand() {}
 
@@ -42,6 +50,10 @@ public final class ImgCommand {
                     .executes(c -> save(c.getSource(), StringArgumentType.getString(c, "name"), null))
                     .then(ClientCommands.argument("link", StringArgumentType.greedyString())
                         .executes(c -> save(c.getSource(), StringArgumentType.getString(c, "name"), StringArgumentType.getString(c, "link"))))))
+            .then(ClientCommands.literal("upload")
+                .executes(c -> upload(c.getSource(), null))
+                .then(ClientCommands.argument("file", StringArgumentType.greedyString()).suggests(SCREENSHOTS)
+                    .executes(c -> upload(c.getSource(), StringArgumentType.getString(c, "file")))))
             .then(ClientCommands.literal("remove")
                 .executes(c -> usage(c.getSource(), "/img remove <name>"))
                 .then(ClientCommands.argument("name", StringArgumentType.word()).suggests(SAVED_NAMES)
@@ -120,6 +132,46 @@ public final class ImgCommand {
             .withHoverEvent(new HoverEvent.ShowText(Component.literal(e.link() + "\nClick to put it in the chat box"))))
             .append(Component.literal(e.token()))));
         src.sendFeedback(line);
+        return 1;
+    }
+
+    static Path screenshots(Minecraft mc) { return mc.gameDirectory.toPath().resolve(Screenshot.SCREENSHOT_DIR); }
+
+    /**
+     * Uploads a screenshot ({@code typed == null}: the newest) in the background. The token goes into the chat box: into
+     * the one that's open, keeping what's typed there, or a new one; with another screen open, onto the clipboard.
+     */
+    private static int upload(FabricClientCommandSource src, @Nullable String typed) {
+        Minecraft mc = src.getClient();
+        Path dir = screenshots(mc);
+        Optional<Path> file = typed == null
+            ? Uploader.images(dir).stream().findFirst().flatMap(n -> Uploader.find(dir, n))
+            : Uploader.find(dir, typed.strip());
+        if (file.isEmpty()) {
+            src.sendError(Component.literal(typed == null ? "No screenshots yet. Press F2 to take one."
+                : "There's no image called " + typed.strip() + " in your screenshots folder."));
+            return 0;
+        }
+        String name = file.get().getFileName().toString();
+        UploadMode mode = ImgPrevClient.CONFIG.uploadMode;
+        String lifetime = ImgPrevClient.CONFIG.uploadLifetime, kept = mode.lifetimeText(lifetime);
+        src.sendFeedback(Component.literal("Uploading " + name + " to " + mode.site() + " (" + kept + ")…").withStyle(ChatFormatting.GRAY));
+        Uploader.upload(file.get(), mode, lifetime).whenComplete((token, err) -> mc.execute(() -> {
+            if (err != null) {
+                src.sendError(Component.literal("Upload failed: " + Uploader.describe(err, mode)));
+                return;
+            }
+            MutableComponent done = Component.literal("Uploaded " + name + " ").append(Component.literal(token)).append(Component.literal(", " + kept + "."));
+            if (mc.gui.screen() instanceof ChatScreen chat) {
+                chat.insertText(token, false);
+            } else if (mc.gui.screen() == null) {
+                mc.gui.setScreen(new ChatScreen(token, false));
+            } else {
+                mc.keyboardHandler.setClipboard(token);
+                done.append(Component.literal(" Copied to the clipboard."));
+            }
+            src.sendFeedback(done);
+        }));
         return 1;
     }
 

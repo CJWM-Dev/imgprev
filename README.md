@@ -10,11 +10,12 @@ Tokens look like `<~GXJtM2nNFCzT3etvzOBK~>`. They contain no links, so chat filt
 
 ## Features
 
-- **Previews** for Giphy, Imgur, Tenor, Discord emoji, stickers and attachments, Gyazo, Klipy, Postimages, ImgBB, Catbox, and FixTweet tweet GIFs (`gif.fxtwitter.com`). Still images, animated GIFs, animated WebP and animated PNG (APNG, which Discord stickers use) are all supported.
+- **Previews** for Giphy, Imgur, Tenor, Discord emoji, stickers and attachments, Gyazo, Klipy, Postimages, ImgBB, Catbox and Litterbox, and FixTweet tweet GIFs (`gif.fxtwitter.com`). Still images, animated GIFs, animated WebP and animated PNG (APNG, which Discord stickers use) are all supported.
 - **Share page links work too.** Postimages (`postimg.cc/…`) and ImgBB (`ibb.co/…`) page links are looked up when you convert them, so you don't need to find the direct image address.
 - **Full-resolution drawing.** Previews are decoded at your screen's resolution and scaled smoothly.
 - **Auto-convert links.** Optionally turns links you send into tokens automatically. This also works in commands such as party chat (`/pc`) or `/msg`.
 - **Saved images.** Save a GIF under a name with `/img save funnycat <link>`, then send it any time with `/img funnycat`, or optionally by typing `:funnycat:` in a message.
+- **Share screenshots without leaving the game.** Click [Share] on the screenshot message and ImgPrev uploads it for you, temporarily or permanently, as you choose.
 - **Settings screen** with `/imgprev settings` or through Mod Menu, plus `/imgprev` chat commands for quick changes.
 - **Label colours.** Each kind of label (GIF, Image, Emoji, Sticker, Discord) has its own colour. Pick a preset or type any hex colour.
 - **Client-side only.** Works on any server. The server only ever sees the token text.
@@ -44,6 +45,17 @@ Requires Java 25.
 | `/imgprev shortcuts on` | Typing `:name:` in a message sends that saved image. Works in chat and in the commands auto-convert covers, such as `/pc` |
 
 Both settings are off by default and are also in the settings screen under Sending.
+
+**Sharing screenshots:** Press F2 to take a screenshot, then click **[Share]** on the "Saved screenshot as…" message and press Enter. ImgPrev uploads it and puts the token in your chat box, so you never leave the game. Or type `/img upload` for your newest screenshot, or `/img upload <file>` for another one from your screenshots folder.
+
+Uploads are anonymous and need no account. **Anyone with the link can see an upload.** Choose where they go in the settings screen (Sending), or with a command:
+
+| Command | Where uploads go |
+|---|---|
+| `/imgprev uploads temporary [1h\|12h\|24h\|72h]` | **Temporary** (the default): [Litterbox](https://litterbox.catbox.moe) deletes them after the time you pick, 24 hours unless you choose otherwise |
+| `/imgprev uploads permanent` | **Permanent**: [Catbox](https://catbox.moe) keeps them, and anonymous uploads can't be deleted |
+
+Only images in your screenshots folder can be uploaded. Screenshots over 8 MB are scaled down and sent as JPEG. Players need ImgPrev 1.1.0 or newer to preview temporary uploads; Catbox uploads also work for 1.0.
 
 **Settings:** Type `/imgprev settings` to open the settings screen (needs Cloth Config), or open it from Mod Menu. Type `/imgprev` for the current status. Useful commands:
 
