@@ -115,10 +115,9 @@ public final class ChatImages {
         int y0 = top + band[0], y1 = top + band[1];
         tex.drawPart(g, 0, y0, size[0], y1, (float) band[0] / size[1], (float) band[1] / size[1], ARGB.color(opacity, 0xFFFFFF), Util.getMillis());
 
-        ImgPrevConfig cfg = ImgPrevClient.CONFIG;
-        if (mouse != null && mouse.x() >= 0 && mouse.x() < size[0] && mouse.y() >= y0 && mouse.y() < y1
-                && (!cfg.requireShift || mc.hasShiftDown())) {
-            ImageTooltip.show(g, font, row.token(), row.media(), mx, my);
+        if (mouse != null && mouse.x() >= 0 && mouse.x() < size[0] && mouse.y() >= y0 && mouse.y() < y1) {
+            MediaViewerScreen.noteHovered(row.token(), row.media());   // so a double-click opens it full screen
+            if (!ImgPrevClient.CONFIG.requireShift || mc.hasShiftDown()) ImageTooltip.show(g, font, row.token(), row.media(), mx, my);
         }
         return FormattedCharSequence.EMPTY;
     }

@@ -6,6 +6,8 @@
     "ChatComponentMixin",
     "ChatHudLineMixin",
     "ChatScreenLineMixin",
+    "ChatScreenMixin",
+    "ChatScrollAccess",
     "GuiGraphicsInvoker",
     "HoverTooltipMixin"
   ],

@@ -13,6 +13,7 @@
       "io.github.cjwmdev.imgprev.gametest.ChatLinesClientGameTest",
       "io.github.cjwmdev.imgprev.gametest.ScaleClientGameTest",
       "io.github.cjwmdev.imgprev.gametest.ChatImagesClientGameTest",
+      "io.github.cjwmdev.imgprev.gametest.ViewerClientGameTest",
       "io.github.cjwmdev.imgprev.gametest.SavedImagesClientGameTest",
       "io.github.cjwmdev.imgprev.gametest.UploadClientGameTest"
     ]

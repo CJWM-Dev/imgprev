@@ -53,9 +53,14 @@ public final class AnimatedTexture {
      * {@code x0,y0..x1,y1}, tinted by {@code argb} (white with alpha to fade it).
      */
     public void drawPart(GuiGraphicsExtractor g, int x0, int y0, int x1, int y1, float v0, float v1, int argb, long millis) {
+        drawPart(g, x0, y0, x1, y1, v0, v1, argb, millis, true);
+    }
+
+    /** {@code smooth} false samples the nearest pixel, so zoomed-in images show their pixels sharply instead of blurred. */
+    public void drawPart(GuiGraphicsExtractor g, int x0, int y0, int x1, int y1, float v0, float v1, int argb, long millis, boolean smooth) {
         if (released) return;
         ((GuiGraphicsInvoker) g).imgprev$innerBlit(RenderPipelines.GUI_TEXTURED, view(frameAt(millis)),
-            RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR), x0, y0, x1, y1, 0f, 1f, v0, v1, argb);
+            RenderSystem.getSamplerCache().getClampToEdge(smooth ? FilterMode.LINEAR : FilterMode.NEAREST), x0, y0, x1, y1, 0f, 1f, v0, v1, argb);
     }
 
     private GpuTextureView view(int i) {
@@ -69,6 +74,9 @@ public final class AnimatedTexture {
         }
         return views[i];
     }
+
+    /** When frame {@code i} starts within one loop, in ms; for stepping through a paused animation frame by frame. */
+    public int frameStartMs(int i) { return i <= 0 ? 0 : endsMs[Math.min(i, count) - 1]; }
 
     public int frameAt(long millis) {
         int total = endsMs[count - 1];
@@ -93,6 +101,7 @@ public final class AnimatedTexture {
     public int displayW() { return displayW; }
     public int displayH() { return displayH; }
     public int textureW() { return texW; }
+    public int textureH() { return texH; }
     public int frameCount() { return count; }
     public long bytes() { return bytes; }
 }

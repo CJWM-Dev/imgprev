@@ -62,6 +62,9 @@ public final class ImageCache {
         public @Nullable AnimatedTexture texture() { return texture; }
         public String error() { return error; }
         public int attempt() { return attempt; }
+        /** The image's own size in pixels, before it was scaled to fit; 0 until it's loaded. */
+        public int srcW() { return srcW; }
+        public int srcH() { return srcH; }
     }
 
     /** Why a load failed, in words for the player, and whether trying again later might work. */

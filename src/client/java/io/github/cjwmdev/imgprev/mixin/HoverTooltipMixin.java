@@ -3,6 +3,7 @@ package io.github.cjwmdev.imgprev.mixin;
 import io.github.cjwmdev.imgprev.ImgPrevClient;
 import io.github.cjwmdev.imgprev.config.ImgPrevConfig;
 import io.github.cjwmdev.imgprev.render.ImageTooltip;
+import io.github.cjwmdev.imgprev.render.MediaViewerScreen;
 import io.github.cjwmdev.imgprev.token.ResolvedMedia;
 import java.util.Optional;
 import net.minecraft.client.Minecraft;
@@ -27,6 +28,7 @@ abstract class HoverTooltipMixin {
         Optional<ResolvedMedia> media = ImageTooltip.resolve(token).filter(cfg::allows);
         if (media.isEmpty()) return;
         ci.cancel();
+        MediaViewerScreen.noteHovered(token, media.get());   // so a double-click opens it full screen
         GuiGraphicsExtractor g = (GuiGraphicsExtractor) (Object) this;
         if (cfg.requireShift && !Minecraft.getInstance().hasShiftDown()) ImageTooltip.text(g, font, "Hold Shift to preview", mx, my);
         else ImageTooltip.show(g, font, token, media.get(), mx, my);

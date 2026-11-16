@@ -14,6 +14,7 @@ Tokens look like `<~GXJtM2nNFCzT3etvzOBK~>`. They contain no links, so chat filt
 - **Share page links work too.** Postimages (`postimg.cc/…`) and ImgBB (`ibb.co/…`) page links are looked up when you convert them, so you don't need to find the direct image address.
 - **Full-resolution drawing.** Previews are decoded at your screen's resolution and scaled smoothly.
 - **Images in chat (optional).** Show each image, shrunk down, right under its message, with the rest of the chat moving up to make room. Off by default.
+- **Full-screen viewer.** Double-click any image or GIF in chat to open it full screen, then zoom in and drag around to look closely.
 - **Auto-convert links.** Optionally turns links you send into tokens automatically. This also works in commands such as party chat (`/pc`) or `/msg`.
 - **Saved images.** Save a GIF under a name with `/img save funnycat <link>`, then send it any time with `/img funnycat`, or optionally by typing `:funnycat:` in a message.
 - **Share screenshots without leaving the game.** Click [Share] on the screenshot message and ImgPrev uploads it for you, temporarily or permanently, as you choose.
@@ -76,6 +77,18 @@ Only images in your screenshots folder can be uploaded. Screenshots over 8 MB ar
 | `/imgprev cache clear` | Free the image cache |
 
 **Images in chat:** `/imgprev chatimages on` (or "Show images in chat" in the settings screen) draws images in chat under their message instead of only on hover. They're shrunk to 5 chat lines tall by default (`/imgprev chatimages <2-20>` changes it), animate, fade out with their message, and scroll with chat. Hover one with chat open to see it full size. Up to 4 images show per message. This is off by default because **every image downloads as soon as it appears**, so its site sees your IP address even if you never look. Image space counts toward chat's 100-line history, so less older chat stays scrollable.
+
+**Full-screen viewer:** with chat open, double-click a label or an image in chat to open it full screen. Images load at up to twice your screen's resolution, and once you're zoomed in far enough, pixels are drawn sharp so you can inspect details.
+
+| Control | What it does |
+|---|---|
+| Scroll wheel, or `+` / `-` | Zoom in or out, towards the cursor |
+| Drag, or the arrow keys | Move around a zoomed-in image |
+| Double-click | Zoom in to real size, or back out to the whole image |
+| `0` or `R` | Back to the whole image |
+| `Space` | Pause or play a GIF; `,` and `.` step back and forward a frame |
+| `C` / `O` | Copy the image's link / open it in your browser |
+| `Esc` | Back to chat, where you left it |
 
 **Klipy page links** (`klipy.com/gifs/…`) can't be converted, because Klipy only gives out the GIF's address through an API that needs a key. Right-click the GIF on the page and copy its image address (`static.klipy.com/…`) instead. That works for everyone, with no setup.
 
