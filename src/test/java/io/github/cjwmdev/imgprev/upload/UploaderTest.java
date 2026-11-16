@@ -145,6 +145,18 @@ class UploaderTest {
         assertEquals(List.of(), Uploader.images(dir.resolve("none")), "no folder yet");
     }
 
+    @Test void refusalsExplainServerTroubleWithoutQuotingErrorPages() {
+        // Litterbox's firewall answers with a styled HTML page; its text used to be pasted into chat.
+        String page = "<!DOCTYPE html><html><head><title>500 | Internal Server Error</title><style>:root{--color-bg-primary:#07354a}</style>";
+        assertEquals("Litterbox is having problems (HTTP 500). Try again in a few minutes, or upload to Catbox instead, "
+            + "which keeps it for good (/imgprev uploads permanent)", Uploader.refusal(UploadMode.TEMPORARY, 500, page));
+        assertEquals("Catbox is having problems (HTTP 502). Try again in a few minutes", Uploader.refusal(UploadMode.PERMANENT, 502, ""));
+        assertEquals("Litterbox is turning uploads away for now (HTTP 403). Wait a few minutes and try again",
+            Uploader.refusal(UploadMode.TEMPORARY, 403, page));
+        assertEquals("Litterbox refused the upload (HTTP 412): No file!", Uploader.refusal(UploadMode.TEMPORARY, 412, "No file!"));
+        assertEquals("Litterbox refused the upload (HTTP 400)", Uploader.refusal(UploadMode.TEMPORARY, 400, "<html><body>Bad</body></html>"));
+    }
+
     @Test void errorAnswersAreShortenedToOneLine() {
         assertEquals("a b", Uploader.shorten("  a\n\n<br>b "));
         assertEquals(80, Uploader.shorten("x".repeat(500)).length());

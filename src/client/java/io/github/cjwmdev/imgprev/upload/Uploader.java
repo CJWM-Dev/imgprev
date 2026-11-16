@@ -207,10 +207,23 @@ public final class Uploader {
             .build();
         HttpResponse<String> r = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
         String reply = r.body() == null ? "" : r.body().strip();
-        if (r.statusCode() != 200) {
-            throw new MediaException(mode.site() + " refused the upload (HTTP " + r.statusCode() + (reply.isEmpty() ? ")" : "): " + shorten(reply)));
-        }
+        if (r.statusCode() != 200) throw new MediaException(refusal(mode, r.statusCode(), reply));
         return reply;
+    }
+
+    /**
+     * Why an upload was turned away, for chat. The sites' own messages ("File too large") are quoted; error pages
+     * from their servers or firewall aren't, since their text is mostly styling, so those get a plain explanation.
+     */
+    static String refusal(UploadMode mode, int status, String reply) {
+        String site = mode.site(), code = " (HTTP " + status + ")";
+        if (status >= 500) {
+            return site + " is having problems" + code + ". Try again in a few minutes"
+                + (mode == UploadMode.TEMPORARY ? ", or upload to Catbox instead, which keeps it for good (/imgprev uploads permanent)" : "");
+        }
+        if (status == 403 || status == 429) return site + " is turning uploads away for now" + code + ". Wait a few minutes and try again";
+        boolean page = reply.regionMatches(true, 0, "<!doctype", 0, 9) || reply.regionMatches(true, 0, "<html", 0, 5);
+        return site + " refused the upload" + code + (reply.isEmpty() || page ? "" : ": " + shorten(reply));
     }
 
     /** The upload sends a neutral file name, never the one on disk. */

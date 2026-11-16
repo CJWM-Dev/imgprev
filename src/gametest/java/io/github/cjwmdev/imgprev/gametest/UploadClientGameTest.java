@@ -80,7 +80,8 @@ public final class UploadClientGameTest implements FabricClientGameTest {
             reply.set("Internal error");
             typeInChat(ctx, "/img upload");
             ctx.waitFor(mc -> lastChat(mc).startsWith("Upload failed"), 200);
-            assertEquals("Upload failed: Litterbox refused the upload (HTTP 500): Internal error", lastChat(ctx), "server error");
+            assertEquals("Upload failed: Litterbox is having problems (HTTP 500). Try again in a few minutes, or upload to Catbox instead, "
+                + "which keeps it for good (/imgprev uploads permanent)", lastChat(ctx), "server error");
             typeInChat(ctx, "/img upload ../options.txt");
             assertEquals("There's no image called ../options.txt in your screenshots folder.", lastChat(ctx), "outside the folder");
 
