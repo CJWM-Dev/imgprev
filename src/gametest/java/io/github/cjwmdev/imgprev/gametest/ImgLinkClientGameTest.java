@@ -7,12 +7,12 @@ import static io.github.cjwmdev.imgprev.gametest.GameTests.lastChat;
 import static io.github.cjwmdev.imgprev.gametest.GameTests.setClipboard;
 import static io.github.cjwmdev.imgprev.gametest.GameTests.typeInChat;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.cjwmdev.imgprev.token.TokenCodec;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.client.gui.screens.ChatScreen;
-import org.lwjgl.glfw.GLFW;
 
 /** /imglink and /imglink chat against the real clipboard, typed through the chat screen. */
 public final class ImgLinkClientGameTest implements FabricClientGameTest {
@@ -44,7 +44,7 @@ public final class ImgLinkClientGameTest implements FabricClientGameTest {
             assertEquals(token, chatInput(ctx), "chat input after /imglink chat");
             assertEquals(URL, clipboard(ctx), "clipboard after /imglink chat");
             ctx.takeScreenshot("imglink-chat");
-            ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+            ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
         } finally {
             setClipboard(ctx, original);
         }

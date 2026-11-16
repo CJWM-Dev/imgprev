@@ -8,6 +8,7 @@ import static io.github.cjwmdev.imgprev.gametest.GameTests.chatInput;
 import static io.github.cjwmdev.imgprev.gametest.GameTests.hover;
 import static io.github.cjwmdev.imgprev.gametest.GameTests.live;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.cjwmdev.imgprev.ImgPrevClient;
 import io.github.cjwmdev.imgprev.image.ImageCache;
 import io.github.cjwmdev.imgprev.render.MediaViewerScreen;
@@ -17,7 +18,6 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Screen;
-import org.lwjgl.glfw.GLFW;
 
 /** Double-clicking a label or an image in chat opens it full screen, where it can be zoomed, dragged and paused. */
 public final class ViewerClientGameTest implements FabricClientGameTest {
@@ -31,7 +31,7 @@ public final class ViewerClientGameTest implements FabricClientGameTest {
             ctx.getInput().typeChars("half-typed");
             hover(ctx, "viewer: ", IMG, "probe-viewer");
             ChatScreen chat = (ChatScreen) ctx.computeOnClient(mc -> mc.gui.screen());
-            ctx.getInput().pressMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+            ctx.getInput().pressMouse(InputConstants.MOUSE_BUTTON_LEFT);
             ctx.waitTicks(10);   // well past a double-click
             assertTrue(screen(ctx) == chat, "one click leaves chat open");
             doubleClick(ctx);
@@ -39,7 +39,7 @@ public final class ViewerClientGameTest implements FabricClientGameTest {
             assertEquals(IMG, ((MediaViewerScreen) screen(ctx)).token(), "the label's image");
             ctx.waitTicks(2);
             ctx.takeScreenshot("viewer-opened");
-            ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+            ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
             ctx.waitTick();
             assertTrue(screen(ctx) == chat, "Esc returns to the same chat");
             assertEquals("half-typed", chatInput(ctx), "what was typed is still there");
@@ -49,7 +49,7 @@ public final class ViewerClientGameTest implements FabricClientGameTest {
             ctx.waitTick();
             doubleClick(ctx);
             assertTrue(screen(ctx) == chat, "double-click away from images");
-            ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+            ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
 
             if (live()) {
                 ctx.setScreen(() -> new ChatScreen("", false));
@@ -69,16 +69,16 @@ public final class ViewerClientGameTest implements FabricClientGameTest {
                 ctx.takeScreenshot("viewer-zoomed");
 
                 double xBefore = imageX(ctx);
-                ctx.getInput().holdMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+                ctx.getInput().holdMouse(InputConstants.MOUSE_BUTTON_LEFT);
                 ctx.getInput().moveCursor(-150, -80);
                 ctx.waitTick();
-                ctx.getInput().releaseMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+                ctx.getInput().releaseMouse(InputConstants.MOUSE_BUTTON_LEFT);
                 ctx.waitTicks(2);
                 assertTrue(imageX(ctx) < xBefore, "dragging left moves the image left");
                 ctx.takeScreenshot("viewer-dragged");
 
-                ctx.getInput().pressKey(GLFW.GLFW_KEY_SPACE);
-                ctx.getInput().pressKey(GLFW.GLFW_KEY_PERIOD);
+                ctx.getInput().pressKey(InputConstants.KEY_SPACE);
+                ctx.getInput().pressKey(InputConstants.KEY_PERIOD);
                 ctx.waitTicks(2);
                 assertTrue((boolean) GameTests.read(MediaViewerScreen.class, "paused", screen(ctx)), "Space pauses");
                 ctx.takeScreenshot("viewer-paused");
@@ -86,7 +86,7 @@ public final class ViewerClientGameTest implements FabricClientGameTest {
                 ctx.waitTicks(10);
                 doubleClick(ctx);
                 assertEquals(1.0, zoom(ctx), "double-click when zoomed in goes back to the whole image");
-                ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+                ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
                 ctx.waitTick();
                 assertTrue(screen(ctx) instanceof ChatScreen, "back in chat");
 
@@ -107,7 +107,7 @@ public final class ViewerClientGameTest implements FabricClientGameTest {
                 ctx.waitTicks(2);
                 doubleClick(ctx);
                 assertTrue(screen(ctx) instanceof MediaViewerScreen, "double-clicking an image in chat opens it: " + screen(ctx));
-                ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+                ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
                 ctx.runOnClient(mc -> ImgPrevClient.CONFIG.imagesInChat = false);
             }
         }
@@ -116,8 +116,8 @@ public final class ViewerClientGameTest implements FabricClientGameTest {
     static Screen screen(ClientGameTestContext ctx) { return ctx.computeOnClient(mc -> mc.gui.screen()); }
 
     static void doubleClick(ClientGameTestContext ctx) {
-        ctx.getInput().pressMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
-        ctx.getInput().pressMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+        ctx.getInput().pressMouse(InputConstants.MOUSE_BUTTON_LEFT);
+        ctx.getInput().pressMouse(InputConstants.MOUSE_BUTTON_LEFT);
         ctx.waitTick();
     }
 

@@ -6,6 +6,7 @@ import static io.github.cjwmdev.imgprev.gametest.GameTests.awaitLoaded;
 import static io.github.cjwmdev.imgprev.gametest.GameTests.hover;
 import static io.github.cjwmdev.imgprev.gametest.GameTests.system;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.cjwmdev.imgprev.image.ImageCache;
 import io.github.cjwmdev.imgprev.token.ResolvedMedia;
 import io.github.cjwmdev.imgprev.token.TokenCodec;
@@ -19,7 +20,6 @@ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.client.gui.screens.ChatScreen;
-import org.lwjgl.glfw.GLFW;
 
 /**
  * Opt-in: chat lines made by something else, such as the Discord chat bridge's guild chat, shown as Hypixel would
@@ -64,7 +64,7 @@ public final class ChatLinesClientGameTest implements FabricClientGameTest {
                     ctx.takeScreenshot("chat-line-" + n++ + "-" + media.codec().name());
                 }
             }
-            ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+            ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
         }
     }
 }

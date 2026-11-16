@@ -1,8 +1,10 @@
 # Builds the mod and runs the unit tests for pushes to main and for pull requests (once each, not twice for a
-# PR branch); the jar is attached to each run.
-# A push to main whose mod_version (gradle.properties) hasn't been released yet also publishes a GitHub release,
-# so bumping the version is what makes a release.
-# (The in-game tests need a display and the live sites, so they stay local: ./gradlew runClientGameTest.)
+# PR branch), once for every Minecraft version in versions/ (26.2.properties, 26.3.properties, ...); each version's
+# jar is attached to the run.
+# A push to main whose mod_version (gradle.properties) hasn't been released yet also publishes a GitHub release
+# with every version's jar, so bumping the version is what makes a release. If any version fails to build, nothing
+# is released.
+# (The in-game tests need a display and the live sites, so they stay local: ./gradlew runClientGameTest -Pmc=26.3.)
 
 name: build
 on:
@@ -14,8 +16,28 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  versions:
     runs-on: ubuntu-24.04
+    outputs:
+      list: ${{ steps.list.outputs.list }}
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v7
+      - name: list the Minecraft versions to build
+        id: list
+        run: |
+          list=$(ls versions/*.properties | sed 's|^versions/||; s|\.properties$||' | jq -R . | jq -cs .)
+          echo "building for $list"
+          echo "list=$list" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: versions
+    name: build (${{ matrix.mc }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        mc: ${{ fromJSON(needs.versions.outputs.list) }}
     steps:
       - name: checkout repository
         uses: actions/checkout@v7
@@ -29,17 +51,17 @@ jobs:
       - name: setup gradle (caches Minecraft and dependencies between runs)
         uses: gradle/actions/setup-gradle@v6
       - name: build and run unit tests
-        run: ./gradlew build
+        run: ./gradlew build -Pmc=${{ matrix.mc }}
       - name: capture build artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: imgprev-jar
+          name: imgprev-jar-${{ matrix.mc }}
           path: build/libs/
       - name: capture test reports
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: test-reports
+          name: test-reports-${{ matrix.mc }}
           path: build/reports/tests/
 
   release:
@@ -52,10 +74,11 @@ jobs:
     steps:
       - name: checkout repository
         uses: actions/checkout@v7
-      - name: download the jar from the build job
+      - name: download every version's jar from the build jobs
         uses: actions/download-artifact@v8
         with:
-          name: imgprev-jar
+          pattern: imgprev-jar-*
+          merge-multiple: true
           path: build/libs/
       - name: publish a release for a new version
         env:
@@ -64,7 +87,15 @@ jobs:
           version=$(sed -n 's/^mod_version=//p' gradle.properties | tr -d '\r')
           if gh release view "v$version" > /dev/null 2>&1; then
             echo "v$version is already released"
-          else
-            gh release create "v$version" "build/libs/imgprev-$version.jar" \
-              --title "ImgPrev $version" --target "$GITHUB_SHA" --generate-notes
+            exit 0
           fi
+          jars=(build/libs/imgprev-"$version"+*.jar)
+          [ -e "${jars[0]}" ] || { echo "no jars for $version in build/libs"; exit 1; }
+          notes="Download the jar for your Minecraft version:"$'\n'
+          for jar in "${jars[@]}"; do
+            name=$(basename "$jar")
+            mc=${name#imgprev-"$version"+}; mc=${mc%.jar}
+            notes+=$'\n'"- Minecraft $mc: \`$name\`"
+          done
+          gh release create "v$version" "${jars[@]}" \
+            --title "ImgPrev $version" --target "$GITHUB_SHA" --notes "$notes" --generate-notes

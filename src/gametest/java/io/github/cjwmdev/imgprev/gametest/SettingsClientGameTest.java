@@ -12,6 +12,7 @@ import static io.github.cjwmdev.imgprev.gametest.GameTests.lastChatLine;
 import static io.github.cjwmdev.imgprev.gametest.GameTests.system;
 import static io.github.cjwmdev.imgprev.gametest.GameTests.typeInChat;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.cjwmdev.imgprev.ImgPrevClient;
 import io.github.cjwmdev.imgprev.config.ImgPrevConfig;
 import io.github.cjwmdev.imgprev.config.ModMenuIntegration;
@@ -26,7 +27,6 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContex
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
-import org.lwjgl.glfw.GLFW;
 
 /** /imgprev settings take effect, persist to config/imgprev.json, and reload from it. */
 public final class SettingsClientGameTest implements FabricClientGameTest {
@@ -69,7 +69,7 @@ public final class SettingsClientGameTest implements FabricClientGameTest {
             ctx.waitTicks(3);
             assertNull(cacheEntry(ctx, IMG), "no download without Shift");
             ctx.takeScreenshot("hover-needs-shift");
-            ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+            ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
             typeInChat(ctx, "/imgprev shift off");
 
             // Reload picks up hand edits to the file.
@@ -92,14 +92,14 @@ public final class SettingsClientGameTest implements FabricClientGameTest {
             ctx.waitTicks(2);
             assertTrue(ctx.computeOnClient(mc -> mc.gui.screen() != null && !(mc.gui.screen() instanceof ChatScreen)), "settings screen open");
             ctx.takeScreenshot("settings-screen");
-            ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+            ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
 
             // /imgprev settings opens the same screen straight from chat, after the chat screen has closed.
             typeInChat(ctx, "/imgprev settings");
             ctx.waitTicks(2);
             assertTrue(ctx.computeOnClient(mc -> mc.gui.screen() != null && !(mc.gui.screen() instanceof ChatScreen)), "settings screen from command");
             ctx.takeScreenshot("settings-from-command");
-            ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+            ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
 
             // Label colours, one per kind: new labels take them, and they're saved.
             system(ctx, "c " + IMG);

@@ -10,6 +10,7 @@ import static io.github.cjwmdev.imgprev.gametest.GameTests.live;
 import static io.github.cjwmdev.imgprev.gametest.GameTests.system;
 import static io.github.cjwmdev.imgprev.gametest.GameTests.typeInChat;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.cjwmdev.imgprev.ImgPrevClient;
 import io.github.cjwmdev.imgprev.config.ImgPrevConfig;
 import io.github.cjwmdev.imgprev.image.ImageCache;
@@ -22,7 +23,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.ChatComponent;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.multiplayer.chat.GuiMessage;
-import org.lwjgl.glfw.GLFW;
 
 /** "Show images in chat": blank rows reserved under a message, the image drawn across them, the chat moving up around it. */
 public final class ChatImagesClientGameTest implements FabricClientGameTest {
@@ -75,7 +75,7 @@ public final class ChatImagesClientGameTest implements FabricClientGameTest {
                 ctx.getInput().setCursorPos(at[0], at[1]);
                 ctx.waitTicks(4);
                 ctx.takeScreenshot("chat-images-hover");
-                ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+                ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
             }
 
             typeInChat(ctx, "/imgprev chatimages off");

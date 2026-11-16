@@ -1,5 +1,6 @@
 package io.github.cjwmdev.imgprev.render;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.cjwmdev.imgprev.ImgPrevClient;
 import io.github.cjwmdev.imgprev.image.AnimatedTexture;
 import io.github.cjwmdev.imgprev.image.ImageCache;
@@ -17,7 +18,6 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Util;
 import org.jspecify.annotations.Nullable;
-import org.lwjgl.glfw.GLFW;
 
 /**
  * Full-screen view of one image or GIF, opened by double-clicking its label or its image in chat. Scroll to zoom
@@ -179,7 +179,7 @@ public final class MediaViewerScreen extends Screen {
     }
 
     @Override public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        if (event.button() != 0) return false;
+        if (event.button() != InputConstants.MOUSE_BUTTON_LEFT) return false;
         if (doubleClick) {
             dragging = false;
             if (view.zoomedIn()) view.reset();
@@ -191,12 +191,12 @@ public final class MediaViewerScreen extends Screen {
     }
 
     @Override public boolean mouseReleased(MouseButtonEvent event) {
-        if (event.button() == 0) dragging = false;
+        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) dragging = false;
         return true;
     }
 
     @Override public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
-        if (event.button() != 0 || !dragging) return false;
+        if (event.button() != InputConstants.MOUSE_BUTTON_LEFT || !dragging) return false;
         view.pan(dx, dy);
         return true;
     }
@@ -208,22 +208,28 @@ public final class MediaViewerScreen extends Screen {
 
     @Override public boolean keyPressed(KeyEvent event) {
         double cx = width / 2.0, cy = MARGIN + (height - BAR - MARGIN * 2) / 2.0, move = Math.max(width, height) / 10.0;
+        // InputConstants, not GLFW: 26.3 swapped GLFW for SDL, which renumbered the keys but kept these names.
+        // It has no constant for keypad minus in either version, so that one goes by its key name.
+        if (InputConstants.getKey(event).getName().equals("key.keyboard.keypad.subtract")) {
+            view.zoomAt(1 / Viewport.STEP, cx, cy);
+            return true;
+        }
         switch (event.key()) {
-            case GLFW.GLFW_KEY_EQUAL, GLFW.GLFW_KEY_KP_ADD -> view.zoomAt(Viewport.STEP, cx, cy);
-            case GLFW.GLFW_KEY_MINUS, GLFW.GLFW_KEY_KP_SUBTRACT -> view.zoomAt(1 / Viewport.STEP, cx, cy);
-            case GLFW.GLFW_KEY_0, GLFW.GLFW_KEY_KP_0, GLFW.GLFW_KEY_R -> view.reset();
-            case GLFW.GLFW_KEY_LEFT -> view.pan(move, 0);
-            case GLFW.GLFW_KEY_RIGHT -> view.pan(-move, 0);
-            case GLFW.GLFW_KEY_UP -> view.pan(0, move);
-            case GLFW.GLFW_KEY_DOWN -> view.pan(0, -move);
-            case GLFW.GLFW_KEY_SPACE -> { if (texture().map(t -> t.frameCount() > 1).orElse(false)) togglePause(); }
-            case GLFW.GLFW_KEY_COMMA -> step(-1);
-            case GLFW.GLFW_KEY_PERIOD -> step(1);
-            case GLFW.GLFW_KEY_C -> link().ifPresent(uri -> {
+            case InputConstants.KEY_EQUALS, InputConstants.KEY_ADD -> view.zoomAt(Viewport.STEP, cx, cy);
+            case InputConstants.KEY_MINUS -> view.zoomAt(1 / Viewport.STEP, cx, cy);
+            case InputConstants.KEY_0, InputConstants.KEY_NUMPAD0, InputConstants.KEY_R -> view.reset();
+            case InputConstants.KEY_LEFT -> view.pan(move, 0);
+            case InputConstants.KEY_RIGHT -> view.pan(-move, 0);
+            case InputConstants.KEY_UP -> view.pan(0, move);
+            case InputConstants.KEY_DOWN -> view.pan(0, -move);
+            case InputConstants.KEY_SPACE -> { if (texture().map(t -> t.frameCount() > 1).orElse(false)) togglePause(); }
+            case InputConstants.KEY_COMMA -> step(-1);
+            case InputConstants.KEY_PERIOD -> step(1);
+            case InputConstants.KEY_C -> link().ifPresent(uri -> {
                 minecraft.keyboardHandler.setClipboard(uri.toString());
                 flash("Link copied to the clipboard");
             });
-            case GLFW.GLFW_KEY_O -> link().ifPresent(uri -> {
+            case InputConstants.KEY_O -> link().ifPresent(uri -> {
                 if (!clickUrlAction(minecraft, this, uri)) flash("Opening links is turned off in Chat Settings");
             });
             default -> { return super.keyPressed(event); }

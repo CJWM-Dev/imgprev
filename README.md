@@ -2,7 +2,7 @@
 
 > **⚠️ Warning:** **Imgur is blocked in the UK**, so Imgur images won't load for UK players. Postimages, ImgBB and Catbox work in the UK and are supported. **Klipy page links** (`klipy.com/gifs/…`) can't be converted. Right-click the GIF and copy its image address instead.
 
-Hover previews for image links in Minecraft chat, for Fabric 26.2.
+Hover previews for image links in Minecraft chat, for Fabric on Minecraft 26.2 and 26.3.
 
 ImgPrev turns image links into short tokens you can send without the link text. Anyone with ImgPrev sees a small label such as `[▶ GIF]` or `[⧈ Image]`, and hovering over it shows the image or animated GIF. Players without the mod see the token as plain text, so nothing breaks for them.
 
@@ -24,10 +24,10 @@ Tokens look like `<~GXJtM2nNFCzT3etvzOBK~>`. They contain no links, so chat filt
 
 ## Installation
 
-1. Install [Fabric Loader](https://fabricmc.net/use/) 0.19.3 or newer for Minecraft 26.2.
-2. Put [Fabric API](https://modrinth.com/mod/fabric-api) 0.161.0+26.2 in your `mods` folder.
-3. Download `imgprev-<version>.jar` from the [releases page](https://github.com/CJWM-Dev/imgprev/releases) and put it in your `mods` folder.
-4. Optional, for the settings screen: add [Cloth Config](https://modrinth.com/mod/cloth-config) 26.2.155. Add [Mod Menu](https://modrinth.com/mod/modmenu) 20.0.3 to open it from the Mods list as well.
+1. Install [Fabric Loader](https://fabricmc.net/use/) 0.19.3 or newer for Minecraft 26.2 or 26.3.
+2. Put [Fabric API](https://modrinth.com/mod/fabric-api) in your `mods` folder: 0.161.0+26.2 for Minecraft 26.2, or 0.166.2+26.3 for 26.3.
+3. Download the jar for your Minecraft version from the [releases page](https://github.com/CJWM-Dev/imgprev/releases) and put it in your `mods` folder: `imgprev-<version>+26.2.jar` for 26.2, or `imgprev-<version>+26.3.jar` for 26.3.
+4. Optional, for the settings screen: add [Cloth Config](https://modrinth.com/mod/cloth-config) (26.2.155 for 26.2, 26.3.159 for 26.3). Add [Mod Menu](https://modrinth.com/mod/modmenu) (20.0.3 for 26.2, 21.0.1 for 26.3) to open it from the Mods list as well.
 
 Requires Java 25.
 
@@ -109,16 +109,18 @@ These are adjustable in the settings screen:
 
 The jar is written to `build/libs/`. Unit tests run as part of the build. The in-game tests need a display and the live sites, so run them separately with `./gradlew runClientGameTest`. Add `-Poffline` to skip the checks that download from the image sites.
 
+That builds for Minecraft 26.2. Add `-Pmc=26.3` to any of these commands to build or test for 26.3 instead. Both jars come from the same source. Each Minecraft version has a file in `versions/` listing its Minecraft, Fabric API, Mod Menu and Cloth Config versions, and CI builds every version listed there and attaches all the jars to each release. To add a Minecraft version, add a file for it.
+
 ## Dependencies
 
 | Dependency | Required | Notes |
 |---|---|---|
-| Minecraft 26.2 | yes | |
+| Minecraft 26.2 or 26.3 | yes | Each has its own jar |
 | Fabric Loader 0.19.3+ | yes | |
-| Fabric API 0.161.0+26.2 | yes | |
+| Fabric API 0.161.0+26.2 or 0.166.2+26.3 | yes | |
 | Java 25 | yes | |
-| Mod Menu 20.0.3 | no | Opens the settings screen from the Mods list |
-| Cloth Config 26.2.155 | no | Needed for the settings screen |
+| Mod Menu 20.0.3 (26.2) or 21.0.1 (26.3) | no | Opens the settings screen from the Mods list |
+| Cloth Config 26.2.155 (26.2) or 26.3.159 (26.3) | no | Needed for the settings screen |
 | TwelveMonkeys ImageIO 3.15.3 | bundled | WebP support, included in the jar (BSD-3, see `META-INF/licenses`) |
 
 ## Contact

@@ -1,5 +1,6 @@
 package io.github.cjwmdev.imgprev.gametest;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.cjwmdev.imgprev.ImgPrevClient;
 import io.github.cjwmdev.imgprev.config.ImgPrevConfig;
 import io.github.cjwmdev.imgprev.image.ImageCache;
@@ -22,7 +23,6 @@ import net.minecraft.client.multiplayer.chat.GuiMessage;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import org.jspecify.annotations.Nullable;
-import org.lwjgl.glfw.GLFW;
 
 /** Shared helpers and tokens for the client game tests. */
 final class GameTests {
@@ -53,7 +53,7 @@ final class GameTests {
         ctx.setScreen(() -> new ChatScreen("", false));
         Screen typedInto = ctx.computeOnClient(mc -> mc.gui.screen());
         ctx.getInput().typeChars(text);
-        ctx.getInput().pressKey(GLFW.GLFW_KEY_ENTER);
+        ctx.getInput().pressKey(InputConstants.KEY_RETURN);
         ctx.waitFor(mc -> mc.gui.screen() != typedInto);
         ctx.waitTick();
     }

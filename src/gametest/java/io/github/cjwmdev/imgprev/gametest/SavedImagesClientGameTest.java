@@ -8,6 +8,7 @@ import static io.github.cjwmdev.imgprev.gametest.GameTests.lastChat;
 import static io.github.cjwmdev.imgprev.gametest.GameTests.setClipboard;
 import static io.github.cjwmdev.imgprev.gametest.GameTests.typeInChat;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.cjwmdev.imgprev.ImgPrevClient;
 import io.github.cjwmdev.imgprev.saved.SavedImages;
 import io.github.cjwmdev.imgprev.token.TokenCodec;
@@ -23,7 +24,6 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContex
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Style;
-import org.lwjgl.glfw.GLFW;
 
 /** /img save, list, send and remove, the instant-send setting, and :name: shortcuts. Needs no network. */
 public final class SavedImagesClientGameTest implements FabricClientGameTest {
@@ -64,7 +64,7 @@ public final class SavedImagesClientGameTest implements FabricClientGameTest {
             typeInChat(ctx, "/img FUNNYCAT");
             ctx.waitForScreen(ChatScreen.class);
             assertEquals(gif, chatInput(ctx), "chat input after /img funnycat");
-            ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+            ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
 
             // Instant send: straight to chat (the server echoes it).
             typeInChat(ctx, "/imgprev instantsend on");

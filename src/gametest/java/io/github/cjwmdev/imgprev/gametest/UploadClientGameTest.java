@@ -6,6 +6,7 @@ import static io.github.cjwmdev.imgprev.gametest.GameTests.chatInput;
 import static io.github.cjwmdev.imgprev.gametest.GameTests.lastChat;
 import static io.github.cjwmdev.imgprev.gametest.GameTests.typeInChat;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.sun.net.httpserver.HttpServer;
 import io.github.cjwmdev.imgprev.token.TokenCodec;
 import io.github.cjwmdev.imgprev.upload.Uploader;
@@ -23,7 +24,6 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContex
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Style;
-import org.lwjgl.glfw.GLFW;
 
 /**
  * A real F2 screenshot, its [Share] button, and /img upload in both modes. Uploads go to a local stand-in for
@@ -42,7 +42,7 @@ public final class UploadClientGameTest implements FabricClientGameTest {
             sp.getConnection().waitForChunksRender();
 
             // F2: the "Saved screenshot as …" line gets a button that types the upload command.
-            ctx.getInput().pressKey(GLFW.GLFW_KEY_F2);
+            ctx.getInput().pressKey(InputConstants.KEY_F2);
             ctx.waitFor(mc -> lastChat(mc).startsWith(PREFIX), 200);
             String line = lastChat(ctx);
             assertTrue(line.endsWith(SHARE), "share button: " + line);
@@ -60,7 +60,7 @@ public final class UploadClientGameTest implements FabricClientGameTest {
             assertTrue(sent.get().contains("name=\"time\"\r\n\r\n24h\r\n"), "lifetime sent");
             assertTrue(sent.get().contains("filename=\"image.png\"") && sent.get().contains("\u0089PNG"), "the screenshot itself, under a neutral name");
             ctx.takeScreenshot("upload-temporary");
-            ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+            ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
 
             // Permanent: Catbox, with no lifetime.
             typeInChat(ctx, "/imgprev uploads permanent");
@@ -70,7 +70,7 @@ public final class UploadClientGameTest implements FabricClientGameTest {
             ctx.waitForScreen(ChatScreen.class);
             assertEquals(TokenCodec.encode(CATBOX).orElseThrow(), chatInput(ctx), "Catbox token in the chat box");
             assertTrue(!sent.get().contains("name=\"time\""), "no lifetime for Catbox");
-            ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+            ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
 
             typeInChat(ctx, "/imgprev uploads temporary 1h");
             assertEquals("Uploads go to Litterbox and are deleted after 1h", lastChat(ctx), "lifetime feedback");
@@ -92,7 +92,7 @@ public final class UploadClientGameTest implements FabricClientGameTest {
             typeInChat(ctx, "/imgprev uploads auto on");
             assertTrue(lastChat(ctx).startsWith("Every screenshot is uploaded to Litterbox (deleted after 1h)"), "auto feedback: " + lastChat(ctx));
             GameTests.setClipboard(ctx, "");
-            ctx.getInput().pressKey(GLFW.GLFW_KEY_F2);
+            ctx.getInput().pressKey(InputConstants.KEY_F2);
             ctx.waitFor(mc -> lastChat(mc).startsWith("Uploaded "), 200);
             assertEquals(LITTERBOX, GameTests.clipboard(ctx), "link copied to the clipboard");
             String auto = lastChat(ctx);

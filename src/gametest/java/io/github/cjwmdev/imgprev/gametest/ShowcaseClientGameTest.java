@@ -4,6 +4,7 @@ import static io.github.cjwmdev.imgprev.gametest.GameTests.awaitLoaded;
 import static io.github.cjwmdev.imgprev.gametest.GameTests.hoverChatInsertion;
 import static io.github.cjwmdev.imgprev.gametest.GameTests.typeInChat;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.cjwmdev.imgprev.ImgPrevClient;
 import io.github.cjwmdev.imgprev.config.ConfigScreen;
 import io.github.cjwmdev.imgprev.token.TokenCodec;
@@ -18,7 +19,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
-import org.lwjgl.glfw.GLFW;
 
 /**
  * Marketing screenshots, not a test: a 1080p window and tidy, Hypixel-style chat for every feature. Only runs with
@@ -65,7 +65,7 @@ public final class ShowcaseClientGameTest implements FabricClientGameTest {
                 ctx.setScreen(() -> new ChatScreen("", false));
                 ctx.waitTicks(3);
                 ctx.takeScreenshot("showcase-01-chat-labels");
-                ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+                ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
                 ctx.waitTicks(2);
                 ctx.takeScreenshot("showcase-01b-chat-hud");
             });
@@ -79,7 +79,7 @@ public final class ShowcaseClientGameTest implements FabricClientGameTest {
                 ctx.setScreen(() -> new ChatScreen("", false));
                 ctx.waitTicks(3);
                 ctx.takeScreenshot("showcase-02-without-imgprev");
-                ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+                ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
                 ctx.runOnClient(mc -> ImgPrevClient.CONFIG.renderEnabled = true);
             });
 
@@ -97,7 +97,7 @@ public final class ShowcaseClientGameTest implements FabricClientGameTest {
                     ctx.takeScreenshot("showcase-10-hover-" + s.name);
                     ctx.waitTicks(9);
                     ctx.takeScreenshot("showcase-10-hover-" + s.name + "-later");
-                    ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+                    ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
                 });
             }
 
@@ -112,7 +112,7 @@ public final class ShowcaseClientGameTest implements FabricClientGameTest {
                     awaitLoaded(ctx, TokenCodec.encode(s.url).orElseThrow());
                     ctx.waitTicks(8);
                     ctx.takeScreenshot("showcase-20-scale-" + percent);
-                    ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+                    ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
                 });
             }
             ctx.runOnClient(mc -> { ImgPrevClient.CONFIG.previewScalePercent = 100; ImgPrevClient.CONFIG.maxDrawPx = 256; });
@@ -132,7 +132,7 @@ public final class ShowcaseClientGameTest implements FabricClientGameTest {
                 ctx.waitTicks(4);
                 ctx.takeScreenshot("showcase-30-shift-held");
                 ctx.getInput().releaseShift();
-                ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+                ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
                 typeInChat(ctx, "/imgprev shift off");
             });
 
@@ -151,7 +151,7 @@ public final class ShowcaseClientGameTest implements FabricClientGameTest {
                 ctx.setScreen(() -> new ChatScreen("", false));
                 ctx.waitTicks(3);
                 ctx.takeScreenshot("showcase-40-custom-colours");
-                ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+                ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
                 typeInChat(ctx, "/imgprev colour reset");
             });
 
@@ -161,20 +161,20 @@ public final class ShowcaseClientGameTest implements FabricClientGameTest {
                 ctx.setScreen(() -> new ChatScreen("/imgprev ", false));
                 ctx.waitTicks(3);
                 ctx.takeScreenshot("showcase-50-status-command");
-                ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+                ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
 
                 GameTests.setClipboard(ctx, "https://media.giphy.com/media/hvRJCLFzcasrR4ia7z/giphy.gif");
                 typeInChat(ctx, "/imglink");
                 ctx.setScreen(() -> new ChatScreen("", false));
                 ctx.waitTicks(3);
                 ctx.takeScreenshot("showcase-51-imglink-copied");
-                ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+                ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
 
                 typeInChat(ctx, "/imglink chat");
                 ctx.waitForScreen(ChatScreen.class);
                 ctx.waitTicks(3);
                 ctx.takeScreenshot("showcase-52-imglink-chat");
-                ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+                ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
             });
 
             scene("autoconvert", () -> {
@@ -185,12 +185,12 @@ public final class ShowcaseClientGameTest implements FabricClientGameTest {
                 ctx.getInput().typeChars("https://media.giphy.com/media/hvRJCLFzcasrR4ia7z/giphy.gif");
                 ctx.waitTicks(3);
                 ctx.takeScreenshot("showcase-53-autoconvert-before");
-                ctx.getInput().pressKey(GLFW.GLFW_KEY_ENTER);
+                ctx.getInput().pressKey(InputConstants.KEY_RETURN);
                 ctx.waitTicks(4);
                 ctx.setScreen(() -> new ChatScreen("", false));
                 ctx.waitTicks(3);
                 ctx.takeScreenshot("showcase-53-autoconvert-after");
-                ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+                ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
                 typeInChat(ctx, "/imgprev autoconvert off");
             });
 
@@ -203,7 +203,7 @@ public final class ShowcaseClientGameTest implements FabricClientGameTest {
                     if (!tab.equals("General")) clickWidget(ctx, tab);
                     ctx.waitTicks(3);
                     ctx.takeScreenshot("showcase-60-settings-" + tab.split(" ")[0].toLowerCase());
-                    ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+                    ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
                 });
             }
         }
@@ -272,6 +272,6 @@ public final class ShowcaseClientGameTest implements FabricClientGameTest {
         if (win == null) throw new AssertionError("no widget " + label);
         ctx.getInput().setCursorPos(win[0], win[1]);
         ctx.waitTick();
-        ctx.getInput().pressMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+        ctx.getInput().pressMouse(InputConstants.MOUSE_BUTTON_LEFT);
     }
 }

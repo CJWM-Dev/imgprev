@@ -9,6 +9,7 @@ import static io.github.cjwmdev.imgprev.gametest.GameTests.lastChat;
 import static io.github.cjwmdev.imgprev.gametest.GameTests.live;
 import static io.github.cjwmdev.imgprev.gametest.GameTests.typeInChat;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.cjwmdev.imgprev.ImgPrevClient;
 import io.github.cjwmdev.imgprev.config.ConfigScreen;
 import io.github.cjwmdev.imgprev.config.ImgPrevConfig;
@@ -16,7 +17,6 @@ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.client.gui.screens.ChatScreen;
-import org.lwjgl.glfw.GLFW;
 
 /** The preview scale setting: the slider on the settings screen, /imgprev scale, and previews drawn bigger or smaller. */
 public final class ScaleClientGameTest implements FabricClientGameTest {
@@ -34,7 +34,7 @@ public final class ScaleClientGameTest implements FabricClientGameTest {
             ctx.setScreen(() -> ConfigScreen.create(null));
             ctx.waitTicks(2);
             ctx.takeScreenshot("settings-scale-150");
-            ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+            ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
             ctx.runOnClient(mc -> ImgPrevClient.CONFIG.previewScalePercent = 100);
 
             if (live()) {
@@ -51,7 +51,7 @@ public final class ScaleClientGameTest implements FabricClientGameTest {
                     shown[i] = ctx.computeOnClient(mc -> ImgPrevClient.CACHE.peek(
                         io.github.cjwmdev.imgprev.token.TokenCodec.decode(GIF).orElseThrow().key()).texture().displayW());
                     ctx.takeScreenshot("scale-" + percent);
-                    ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+                    ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
                 }
                 assertTrue(shown[0] > 0, "loaded: " + shown[0]);
             }

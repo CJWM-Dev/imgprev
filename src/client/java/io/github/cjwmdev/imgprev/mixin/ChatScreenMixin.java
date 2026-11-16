@@ -1,5 +1,6 @@
 package io.github.cjwmdev.imgprev.mixin;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.cjwmdev.imgprev.render.MediaViewerScreen;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.ChatScreen;
@@ -24,6 +25,6 @@ abstract class ChatScreenMixin {
 
     @Inject(method = "mouseClicked(Lnet/minecraft/client/input/MouseButtonEvent;Z)Z", at = @At("HEAD"), cancellable = true)
     private void imgprev$openViewer(MouseButtonEvent event, boolean doubleClick, CallbackInfoReturnable<Boolean> cir) {
-        if (event.button() == 0 && MediaViewerScreen.chatClicked((ChatScreen) (Object) this)) cir.setReturnValue(true);
+        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && MediaViewerScreen.chatClicked((ChatScreen) (Object) this)) cir.setReturnValue(true);
     }
 }

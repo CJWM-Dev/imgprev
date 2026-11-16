@@ -12,6 +12,7 @@ import static io.github.cjwmdev.imgprev.gametest.GameTests.lastChat;
 import static io.github.cjwmdev.imgprev.gametest.GameTests.live;
 import static io.github.cjwmdev.imgprev.gametest.GameTests.typeInChat;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.cjwmdev.imgprev.ImgPrevClient;
 import io.github.cjwmdev.imgprev.image.FrameDecoder;
 import io.github.cjwmdev.imgprev.image.ImageCache;
@@ -23,7 +24,6 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
 
 /**
  * Tokens in received chat become labels, for server system messages and player chat; hovering a label
@@ -108,7 +108,7 @@ public final class ChatPreviewClientGameTest implements FabricClientGameTest {
                 ctx.takeScreenshot("hover-missing");
             }
 
-            ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+            ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
 
             // The bundled WebP reader registers and decodes under Fabric's class loading, not only in unit tests.
             FrameDecoder.Frames<int[]> webp;

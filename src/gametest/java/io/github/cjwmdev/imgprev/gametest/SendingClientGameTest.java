@@ -12,6 +12,7 @@ import static io.github.cjwmdev.imgprev.gametest.GameTests.recentChat;
 import static io.github.cjwmdev.imgprev.gametest.GameTests.setClipboard;
 import static io.github.cjwmdev.imgprev.gametest.GameTests.typeInChat;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.cjwmdev.imgprev.image.ImageCache;
 import io.github.cjwmdev.imgprev.site.LinkConverter;
 import io.github.cjwmdev.imgprev.token.TokenCodec;
@@ -20,7 +21,6 @@ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.client.gui.screens.ChatScreen;
-import org.lwjgl.glfw.GLFW;
 
 /** Sender side: /imglink with a typed link, Klipy and Postimages links, and converting links as messages are sent. */
 public final class SendingClientGameTest implements FabricClientGameTest {
@@ -53,7 +53,7 @@ public final class SendingClientGameTest implements FabricClientGameTest {
                 assertTrue(klipyEntry.texture().frameCount() > 1, "klipy webp is animated");
                 ctx.waitTicks(2);
                 ctx.takeScreenshot("hover-klipy-webp");
-                ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+                ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
             }
 
             // Klipy page links can't be converted; say how to get a usable link.
@@ -72,7 +72,7 @@ public final class SendingClientGameTest implements FabricClientGameTest {
                 assertEquals(ImageCache.State.READY, postimagesEntry.state(), "postimages state (error: " + postimagesEntry.error() + ")");
                 ctx.waitTicks(2);
                 ctx.takeScreenshot("hover-postimages");
-                ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+                ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
             }
 
             // Converting links as chat is sent (the server echoes what it received).
@@ -101,7 +101,7 @@ public final class SendingClientGameTest implements FabricClientGameTest {
             assertEquals("Message not sent: " + LinkConverter.KLIPY_PAGE_LINK, lastChat(ctx), "held back");
             ctx.waitForScreen(ChatScreen.class);
             assertEquals("hey " + KLIPY_PAGE, chatInput(ctx), "text restored for editing");
-            ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+            ctx.getInput().pressKey(InputConstants.KEY_ESCAPE);
 
             // Off again: links go out as typed.
             typeInChat(ctx, "/imgprev autoconvert off");
