@@ -83,6 +83,35 @@ public final class UploadClientGameTest implements FabricClientGameTest {
             assertEquals("Upload failed: Litterbox refused the upload (HTTP 500): Internal error", lastChat(ctx), "server error");
             typeInChat(ctx, "/img upload ../options.txt");
             assertEquals("There's no image called ../options.txt in your screenshots folder.", lastChat(ctx), "outside the folder");
+
+            // Upload every screenshot: F2 alone uploads it and copies the link; the screenshot line has no [Share].
+            status.set(200);
+            reply.set(LITTERBOX);
+            sent.set("");
+            typeInChat(ctx, "/imgprev uploads auto on");
+            assertTrue(lastChat(ctx).startsWith("Every screenshot is uploaded to Litterbox (deleted after 1h)"), "auto feedback: " + lastChat(ctx));
+            GameTests.setClipboard(ctx, "");
+            ctx.getInput().pressKey(GLFW.GLFW_KEY_F2);
+            ctx.waitFor(mc -> lastChat(mc).startsWith("Uploaded "), 200);
+            assertEquals(LITTERBOX, GameTests.clipboard(ctx), "link copied to the clipboard");
+            String auto = lastChat(ctx);
+            assertTrue(auto.endsWith(", deleted after 1h. Link copied to the clipboard. [Put in chat]"), "auto feedback: " + auto);
+            String autoFile = auto.substring("Uploaded ".length(), auto.indexOf(", deleted"));
+            assertEquals(java.util.List.of(auto, "Uploading " + autoFile + " to Litterbox…", PREFIX + autoFile),
+                GameTests.recentChat(ctx, 3), "the screenshot line, then uploading, then done; no [Share]");
+            Optional<String> putInChat = ctx.computeOnClient(mc -> GameTests.lastChatLine(mc).visit((style, text) ->
+                style.getClickEvent() instanceof ClickEvent.SuggestCommand s ? Optional.of(s.command()) : Optional.<String>empty(), Style.EMPTY));
+            assertEquals(Optional.of(TokenCodec.encode(LITTERBOX).orElseThrow()), putInChat, "[Put in chat] suggests the token");
+            ctx.takeScreenshot("upload-auto");
+
+            // A server sending the same message can't make it upload anything (here, the screenshot just taken).
+            sent.set("");
+            ctx.runOnClient(mc -> mc.gui.hud.getChat().addServerSystemMessage(
+                net.minecraft.network.chat.Component.translatable("screenshot.success", net.minecraft.network.chat.Component.literal(autoFile))));
+            ctx.waitTicks(40);
+            assertEquals("", sent.get(), "nothing uploaded for a server's message");
+            assertEquals(PREFIX + autoFile, lastChat(ctx), "and no upload messages");
+            typeInChat(ctx, "/imgprev uploads auto off");
         } finally {
             Uploader.useTestServer(null);
             server.stop(0);

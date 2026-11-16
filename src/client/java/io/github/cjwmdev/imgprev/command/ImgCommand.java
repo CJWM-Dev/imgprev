@@ -156,11 +156,12 @@ public final class ImgCommand {
         UploadMode mode = ImgPrevClient.CONFIG.uploadMode;
         String lifetime = ImgPrevClient.CONFIG.uploadLifetime, kept = mode.lifetimeText(lifetime);
         src.sendFeedback(Component.literal("Uploading " + name + " to " + mode.site() + " (" + kept + ")…").withStyle(ChatFormatting.GRAY));
-        Uploader.upload(file.get(), mode, lifetime).whenComplete((token, err) -> mc.execute(() -> {
+        Uploader.upload(file.get(), mode, lifetime).whenComplete((uploaded, err) -> mc.execute(() -> {
             if (err != null) {
                 src.sendError(Component.literal("Upload failed: " + Uploader.describe(err, mode)));
                 return;
             }
+            String token = uploaded.token();
             MutableComponent done = Component.literal("Uploaded " + name + " ").append(Component.literal(token)).append(Component.literal(", " + kept + "."));
             if (mc.gui.screen() instanceof ChatScreen chat) {
                 chat.insertText(token, false);

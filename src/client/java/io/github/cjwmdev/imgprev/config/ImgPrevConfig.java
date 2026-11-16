@@ -66,6 +66,8 @@ public final class ImgPrevConfig {
     public UploadMode uploadMode = UploadMode.TEMPORARY;
     /** How long temporary uploads last: one of {@link UploadMode#LIFETIMES}. */
     public String uploadLifetime = UploadMode.DEFAULT_LIFETIME;
+    /** Off by default: every screenshot taken (F2) is uploaded at once, and its link copied to the clipboard. */
+    public boolean autoUploadScreenshots = false;
     /** Colour of each kind of label, keyed by {@link Label#text}: a chat colour name such as {@code aqua}, or {@code #RRGGBB}. */
     public Map<String, String> labelColors = defaultLabelColors();
 

@@ -67,6 +67,9 @@ public final class Uploader {
 
     record Prepared(byte[] bytes, String ext) {}
 
+    /** An upload's address on the site, and the token for it. */
+    public record Uploaded(String link, String token) {}
+
     private Uploader() {}
 
     /** Game tests only: uploads go to this local server, whichever mode is chosen, until it's set back to null. */
@@ -100,14 +103,15 @@ public final class Uploader {
         return EXTENSIONS.contains(ext) ? Optional.of(ext) : Optional.empty();
     }
 
-    /** Completes with the token for the uploaded file; fails with an exception {@link #describe} turns into a message. */
-    public static CompletableFuture<String> upload(Path file, UploadMode mode, String lifetime) {
+    /** Completes with the uploaded file's link and token; fails with an exception {@link #describe} turns into a message. */
+    public static CompletableFuture<Uploaded> upload(Path file, UploadMode mode, String lifetime) {
         URI endpoint = Optional.ofNullable(testServer).orElse(mode == UploadMode.TEMPORARY ? LITTERBOX : CATBOX);
         return CompletableFuture.supplyAsync(() -> {
             try {
                 if (Files.size(file) > MAX_FILE) throw new MediaException("That file is too big to upload (over " + (MAX_FILE >> 20) + " MB)");
                 Prepared p = prepare(Files.readAllBytes(file), SHRINK_OVER, MAX_SIDE);
-                return token(mode, post(endpoint, mode, lifetime, p));
+                String link = post(endpoint, mode, lifetime, p);
+                return new Uploaded(link, token(mode, link));
             } catch (IOException | InterruptedException e) {
                 throw new CompletionException(e);
             }

@@ -49,12 +49,14 @@ Both settings are off by default and are also in the settings screen under Sendi
 
 **Sharing screenshots:** Press F2 to take a screenshot, then click **[Share]** on the "Saved screenshot as…" message and press Enter. ImgPrev uploads it and puts the token in your chat box, so you never leave the game. Or type `/img upload` for your newest screenshot, or `/img upload <file>` for another one from your screenshots folder.
 
-Uploads are anonymous and need no account. **Anyone with the link can see an upload.** Choose where they go in the settings screen (Sending), or with a command:
+Uploads are anonymous and need no account. **Anyone with the link can see an upload.** Choose where they go in the settings screen (Sending → Screenshot uploads), or with a command:
 
 | Command | Where uploads go |
 |---|---|
 | `/imgprev uploads temporary [1h\|12h\|24h\|72h]` | **Temporary** (the default): [Litterbox](https://litterbox.catbox.moe) deletes them after the time you pick, 24 hours unless you choose otherwise |
 | `/imgprev uploads permanent` | **Permanent**: [Catbox](https://catbox.moe) keeps them, and anonymous uploads can't be deleted |
+
+**Upload every screenshot:** turn on "Upload every screenshot" in the same place, or type `/imgprev uploads auto on`. Each screenshot you take is then uploaded straight away and its link copied to your clipboard, ready to paste anywhere. Click **[Put in chat]** on the message to send it as a token instead. This is off by default, since anyone with the link can see the screenshot.
 
 Only images in your screenshots folder can be uploaded. Screenshots over 8 MB are scaled down and sent as JPEG. Players need ImgPrev 1.1.0 or newer to preview temporary uploads; Catbox uploads also work for 1.0.
 

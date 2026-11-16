@@ -12,6 +12,7 @@ import java.util.Map;
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
 import me.shedaniel.clothconfig2.api.ConfigCategory;
 import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
+import me.shedaniel.clothconfig2.impl.builders.SubCategoryBuilder;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -79,16 +80,24 @@ public final class ConfigScreen {
             .setTooltip(text("Off: /img <name> puts the saved image in the chat box, ready to send."), text("On: it's sent to chat at once."))
             .setSaveConsumer(v -> cfg.sendSavedImmediately = v).build());
 
-        sending.addEntry(e.startEnumSelector(text("Screenshot uploads"), UploadMode.class, cfg.uploadMode).setDefaultValue(defaults.uploadMode)
+        // Everything about uploading screenshots, in its own section of this tab.
+        SubCategoryBuilder uploads = e.startSubCategory(text("Screenshot uploads")).setExpanded(true)
+            .setTooltip(text("Sharing screenshots with the [Share] button, /img upload, or automatically"));
+        uploads.add(e.startBooleanToggle(text("Upload every screenshot"), cfg.autoUploadScreenshots).setDefaultValue(defaults.autoUploadScreenshots)
+            .setTooltip(text("Each screenshot you take (F2) is uploaded straight away and its link copied to the clipboard."),
+                text("Anyone with the link can see it, so this is off by default."))
+            .setSaveConsumer(v -> cfg.autoUploadScreenshots = v).build());
+        uploads.add(e.startEnumSelector(text("Upload to"), UploadMode.class, cfg.uploadMode).setDefaultValue(defaults.uploadMode)
             .setEnumNameProvider(m -> text(((UploadMode) m).title()))
-            .setTooltip(text("Where /img upload and the [Share] button send screenshots. Anyone with the link can see them."),
+            .setTooltip(text("Where screenshots are sent. Anyone with the link can see them."),
                 text("Temporary: Litterbox deletes them after the time below."),
                 text("Permanent: Catbox keeps them, and they can't be deleted."))
             .setSaveConsumer(v -> cfg.uploadMode = v).build());
-        sending.addEntry(e.startSelector(text("Temporary uploads last"), UploadMode.LIFETIMES.toArray(String[]::new), cfg.uploadLifetime)
+        uploads.add(e.startSelector(text("Temporary uploads last"), UploadMode.LIFETIMES.toArray(String[]::new), cfg.uploadLifetime)
             .setDefaultValue(defaults.uploadLifetime)
             .setTooltip(text("How long Litterbox keeps temporary uploads"))
             .setSaveConsumer(v -> cfg.uploadLifetime = v).build());
+        sending.addEntry(uploads.build());
 
         ConfigCategory sites = builder.getOrCreateCategory(text("Sites"));
         for (SiteCodec c : SiteRegistry.all()) {

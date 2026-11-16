@@ -39,6 +39,12 @@ abstract class ChatComponentMixin {
         return cfg.renderEnabled ? TokenStyler.apply(contents, cfg::allows, cfg::labelColor) : contents;
     }
 
+    /** Only the client's own messages come through here, so a server can't fake "Saved screenshot as …" to start an upload. */
+    @Inject(method = "addClientSystemMessage(Lnet/minecraft/network/chat/Component;)V", at = @At("HEAD"))
+    private void imgprev$autoUploadScreenshot(Component message, CallbackInfo ci) {
+        ScreenshotShare.autoUpload(message);
+    }
+
     /**
      * Images in chat: after vanilla has wrapped a message into lines (newest first in trimmedMessages), add blank
      * rows under it for its images. Runs for new messages and whenever chat is laid out again (resized, settings).

@@ -163,4 +163,22 @@ class UploaderTest {
         Component odd = Component.translatable("screenshot.success", Component.literal("x.txt"));
         assertTrue(ScreenshotShare.apply(odd, cfg) == odd, "only images");
     }
+
+    @Test void autoUploadReplacesTheShareButton() {
+        ImgPrevConfig cfg = new ImgPrevConfig();
+        assertFalse(cfg.autoUploadScreenshots, "off by default");
+        cfg.autoUploadScreenshots = true;
+        Component msg = Component.translatable("screenshot.success", Component.literal("2026-11-01_12.00.00.png"));
+        assertTrue(ScreenshotShare.apply(msg, cfg) == msg, "no [Share]: it's uploading already");
+        assertEquals(java.util.Optional.of("2026-11-01_12.00.00.png"), ScreenshotShare.fileName(msg));
+        assertTrue(ScreenshotShare.fileName(Component.literal("2026-11-01_12.00.00.png")).isEmpty());
+    }
+
+    @Test void onlyJustTakenScreenshotsAreAutoUploaded() throws IOException {
+        Path shot = Files.writeString(dir.resolve("a.png"), "x");
+        long now = Files.getLastModifiedTime(shot).toMillis();
+        assertTrue(ScreenshotShare.fresh(shot, now + 5_000));
+        assertFalse(ScreenshotShare.fresh(shot, now + ScreenshotShare.FRESH_MS + 1), "an old screenshot named in a message");
+        assertFalse(ScreenshotShare.fresh(dir.resolve("missing.png"), now));
+    }
 }

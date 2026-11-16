@@ -147,14 +147,24 @@ public final class ImgPrevCommand {
         return root;
     }
 
-    /** {@code /imgprev uploads temporary [1h|12h|24h|72h]} and {@code /imgprev uploads permanent}. */
+    /** {@code /imgprev uploads temporary [1h|12h|24h|72h]}, {@code /imgprev uploads permanent} and {@code /imgprev uploads auto on|off}. */
     private static LiteralArgumentBuilder<FabricClientCommandSource> uploads() {
         LiteralArgumentBuilder<FabricClientCommandSource> temporary = editing("temporary", (src, cfg) -> setUploads(src, cfg, UploadMode.TEMPORARY, cfg.uploadLifetime));
         for (String lifetime : UploadMode.LIFETIMES) {
             temporary.then(editing(lifetime, (src, cfg) -> setUploads(src, cfg, UploadMode.TEMPORARY, lifetime)));
         }
         return ClientCommands.literal("uploads").then(temporary)
-            .then(editing("permanent", (src, cfg) -> setUploads(src, cfg, UploadMode.PERMANENT, cfg.uploadLifetime)));
+            .then(editing("permanent", (src, cfg) -> setUploads(src, cfg, UploadMode.PERMANENT, cfg.uploadLifetime)))
+            .then(ClientCommands.literal("auto")
+                .then(editing("on", (src, cfg) -> {
+                    cfg.autoUploadScreenshots = true;
+                    src.sendFeedback(Component.literal("Every screenshot is uploaded to " + cfg.uploadMode.site() + " ("
+                        + cfg.uploadMode.lifetimeText(cfg.uploadLifetime) + ") and its link copied. Anyone with the link can see it"));
+                }))
+                .then(editing("off", (src, cfg) -> {
+                    cfg.autoUploadScreenshots = false;
+                    src.sendFeedback(Component.literal("Screenshots are only uploaded when you click [Share] or use /img upload"));
+                })));
     }
 
     private static void setUploads(FabricClientCommandSource src, ImgPrevConfig cfg, UploadMode mode, String lifetime) {
@@ -202,7 +212,8 @@ public final class ImgPrevCommand {
         src.sendFeedback(Component.literal("ImgPrev: previews " + (cfg.renderEnabled ? "on" : "off")
             + (cfg.requireShift ? ", Shift to preview" : "") + (cfg.imagesInChat ? ", images in chat" : "") + (cfg.autoConvertLinks ? ", auto-convert on" : "")
             + (cfg.savedNameShortcuts ? ", :name: shortcuts on" : "") + (cfg.sendSavedImmediately ? ", instant send on" : "")
-            + ", uploads " + (cfg.uploadMode == UploadMode.TEMPORARY ? "temporary (" + cfg.uploadLifetime + ")" : "permanent") + ". Sites:").append(sites));
+            + ", uploads " + (cfg.uploadMode == UploadMode.TEMPORARY ? "temporary (" + cfg.uploadLifetime + ")" : "permanent")
+            + (cfg.autoUploadScreenshots ? ", every screenshot uploaded" : "") + ". Sites:").append(sites));
         src.sendFeedback(Component.literal("Labels:").append(allLabels(cfg))
             .append(Component.literal(". All settings: /imgprev settings").withStyle(ChatFormatting.GRAY)));
         src.sendFeedback(Component.literal(String.format("Cache: %d images, %.1f of %d MB. Saved images: %d (/img list)",
